@@ -28,7 +28,7 @@ if not firebase_admin._apps:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    print("🚀 Schedulify Backend Started")
+    print("🚀 Schedulify Backend Started on Render")
     yield
     # Shutdown
     print("👋 Schedulify Backend Stopped")
@@ -40,10 +40,15 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS configuration
+# CORS configuration - Updated for Render + Vercel
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://*.vercel.app"],
+    allow_origins=[
+        "http://localhost:3000", 
+        "https://*.vercel.app",
+        "https://*.onrender.com",  # Add Render domains
+        "https://schedulify-frontend.vercel.app"  # Your specific Vercel domain
+    ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
@@ -55,8 +60,18 @@ app.include_router(auth.router, prefix="/api/v1/auth", tags=["authentication"])
 
 @app.get("/")
 async def root():
-    return {"message": "Schedulify API is running!", "timestamp": datetime.now()}
+    return {
+        "message": "Schedulify API is running on Render!", 
+        "timestamp": datetime.now(),
+        "status": "healthy"
+    }
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": "schedulify-backend"}
+    return {"status": "healthy", "service": "schedulify-backend", "platform": "render"}
+
+# Add this for Render deployment
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
