@@ -9,8 +9,13 @@ from app.services.firebase_service import FirebaseService
 from app.utils.export_utils import ExportUtils
 
 router = APIRouter()
-firebase_service = FirebaseService()
-export_utils = ExportUtils()
+
+# Create Firebase service instance when needed (not at module level)
+def get_firebase_service():
+    return FirebaseService()
+
+def get_export_utils():
+    return ExportUtils()
 
 @router.post("/generate", response_model=TimetableResponse)
 async def generate_timetable(
@@ -53,7 +58,8 @@ async def generate_timetable(
         # Run optimization
         result = optimizer.optimize()
         
-        # Save to Firebase in background
+        # Save to Firebase in background (create service when needed)
+        firebase_service = get_firebase_service()
         background_tasks.add_task(
             firebase_service.save_timetable,
             request.institution_id,
@@ -83,6 +89,7 @@ async def generate_timetable(
 async def get_timetable(institution_id: str):
     """Retrieve saved timetable"""
     try:
+        firebase_service = get_firebase_service()
         timetable = await firebase_service.get_timetable(institution_id)
         
         if not timetable:
@@ -102,6 +109,9 @@ async def export_timetable(
 ):
     """Export timetable to Excel or PDF"""
     try:
+        firebase_service = get_firebase_service()
+        export_utils = get_export_utils()
+        
         timetable = await firebase_service.get_timetable(institution_id)
         
         if not timetable:

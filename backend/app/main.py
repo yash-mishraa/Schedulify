@@ -1,37 +1,32 @@
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-import firebase_admin
-from firebase_admin import credentials, firestore
 import os
 from datetime import datetime
+import logging
 
-from app.models.timetable import TimetableRequest, TimetableResponse
-from app.services.genetic_algorithm import GeneticTimetableOptimizer
-from app.services.firebase_service import FirebaseService
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Import routes (Firebase will be initialized when FirebaseService is created)
 from app.routes import timetable, auth
-
-# Initialize Firebase Admin
-if not firebase_admin._apps:
-    cred = credentials.Certificate({
-        "type": "service_account",
-        "project_id": os.getenv("FIREBASE_PROJECT_ID"),
-        "private_key_id": os.getenv("FIREBASE_PRIVATE_KEY_ID"),
-        "private_key": os.getenv("FIREBASE_PRIVATE_KEY").replace('\\n', '\n'),
-        "client_email": os.getenv("FIREBASE_CLIENT_EMAIL"),
-        "client_id": os.getenv("FIREBASE_CLIENT_ID"),
-        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-        "token_uri": "https://oauth2.googleapis.com/token"
-    })
-    firebase_admin.initialize_app(cred)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    print("🚀 Schedulify Backend Started on Render")
+    logger.info("🚀 Schedulify Backend Started on Render")
+    # Test Firebase connection on startup
+    try:
+        from app.services.firebase_service import FirebaseService
+        firebase_service = FirebaseService()
+        logger.info("✅ Firebase connection established successfully")
+    except Exception as e:
+        logger.error(f"❌ Firebase connection failed: {e}")
+        # Don't crash the app, but log the error
     yield
     # Shutdown
-    print("👋 Schedulify Backend Stopped")
+    logger.info("👋 Schedulify Backend Stopped")
 
 app = FastAPI(
     title="Schedulify API",
@@ -46,8 +41,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000", 
         "https://*.vercel.app",
-        "https://*.onrender.com",  # Add Render domains
-        "https://schedulify-frontend.vercel.app"  # Your specific Vercel domain
+        "https://*.onrender.com",
+        "https://schedulify-frontend.vercel.app"
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
@@ -63,12 +58,48 @@ async def root():
     return {
         "message": "Schedulify API is running on Render!", 
         "timestamp": datetime.now(),
-        "status": "healthy"
+        "status": "healthy",
+        "platform": "render"
     }
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": "schedulify-backend", "platform": "render"}
+    """Enhanced health check with Firebase connection status"""
+    try:
+        from app.services.firebase_service import FirebaseService
+        firebase_service = FirebaseService()
+        firebase_status = "connected"
+    except Exception as e:
+        firebase_status = f"error: {str(e)}"
+    
+    return {
+        "status": "healthy", 
+        "service": "schedulify-backend", 
+        "platform": "render",
+        "firebase": firebase_status,
+        "timestamp": datetime.now()
+    }
+
+@app.get("/test-firebase")
+async def test_firebase():
+    """Test Firebase connection endpoint"""
+    try:
+        from app.services.firebase_service import FirebaseService
+        firebase_service = FirebaseService()
+        
+        # Try to access a collection (won't create anything)
+        test_ref = firebase_service.db.collection('test')
+        
+        return {
+            "firebase_status": "✅ Connected successfully",
+            "project_id": os.getenv("FIREBASE_PROJECT_ID"),
+            "timestamp": datetime.now()
+        }
+    except Exception as e:
+        return {
+            "firebase_status": f"❌ Connection failed: {str(e)}",
+            "timestamp": datetime.now()
+        }
 
 # Add this for Render deployment
 if __name__ == "__main__":
