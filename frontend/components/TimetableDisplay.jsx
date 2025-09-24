@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
-import { Clock, Users, Award, Calendar, Utensils } from 'lucide-react';
+import { Clock, Users, Award, Calendar, Utensils, BookOpen, GraduationCap } from 'lucide-react';
 
 const TimetableDisplay = ({ data, institutionId, onEdit }) => {
   const { timetable, fitness_score, summary, timestamp, constraints } = data;
@@ -17,23 +17,27 @@ const TimetableDisplay = ({ data, institutionId, onEdit }) => {
     );
   }
 
-  // Convert UTC timestamp to IST
-  const formatISTTime = (utcTimestamp) => {
-    const utcDate = new Date(utcTimestamp);
-    const istDate = new Date(utcDate.getTime() + (5.5 * 60 * 60 * 1000));
-    return istDate.toLocaleString('en-IN', {
-      timeZone: 'Asia/Kolkata',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true
-    });
+  // Format IST time properly
+  const formatISTTime = (timestamp) => {
+    if (!timestamp) return new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+    
+    try {
+      const date = new Date(timestamp);
+      return date.toLocaleString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch (error) {
+      return new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+    }
   };
 
-  // Get lunch time from constraints or use default
+  // Get lunch time from constraints
   const lunchStart = constraints?.lunch_start || '12:30';
   const lunchEnd = constraints?.lunch_end || '13:30';
 
@@ -51,41 +55,64 @@ const TimetableDisplay = ({ data, institutionId, onEdit }) => {
     return slotMinutes >= lunchStartTotal && slotMinutes < lunchEndTotal;
   };
 
+  // Calculate statistics
+  const calculateStats = () => {
+    let totalClasses = 0;
+    let labCount = 0;
+    let lectureCount = 0;
+    const teacherWorkload = {};
+    const courseStats = {};
+    
+    Object.values(timetable).forEach(daySchedule => {
+      Object.values(daySchedule).forEach(classInfo => {
+        if (classInfo) {
+          totalClasses++;
+          if (classInfo.type === 'lab') labCount++;
+          else lectureCount++;
+          
+          const teacher = classInfo.teacher || 'Unknown';
+          teacherWorkload[teacher] = (teacherWorkload[teacher] || 0) + 1;
+          
+          const course = classInfo.course_code || 'Unknown';
+          courseStats[course] = (courseStats[course] || 0) + 1;
+        }
+      });
+    });
+    
+    return { totalClasses, labCount, lectureCount, teacherWorkload, courseStats };
+  };
+
+  const stats = calculateStats();
+
   // Get all time slots and days
   const allTimeSlots = new Set();
   const allDays = Object.keys(timetable);
   
-  // Collect all time slots
   Object.values(timetable).forEach(daySchedule => {
     Object.keys(daySchedule).forEach(timeSlot => {
       allTimeSlots.add(timeSlot);
     });
   });
 
-  // Add lunch slot if it doesn't exist
+  // Add lunch slot
   const [lunchHour, lunchMinute] = lunchStart.split(':').map(Number);
   const lunchSlot = `${lunchHour.toString().padStart(2, '0')}:${lunchMinute.toString().padStart(2, '0')}`;
   allTimeSlots.add(lunchSlot);
   
-  // Sort time slots
   const sortedTimeSlots = Array.from(allTimeSlots).sort((a, b) => {
     const [hoursA, minutesA] = a.split(':').map(Number);
     const [hoursB, minutesB] = b.split(':').map(Number);
     return (hoursA * 60 + minutesA) - (hoursB * 60 + minutesB);
   });
 
-  // Sort days in proper order
   const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const sortedDays = allDays.sort((a, b) => dayOrder.indexOf(a) - dayOrder.indexOf(b));
 
   const getClassColor = (classInfo) => {
     if (!classInfo) return '';
-    
-    if (classInfo.type === 'lab') {
-      return 'bg-blue-100 border-blue-300 text-blue-800';
-    } else {
-      return 'bg-green-100 border-green-300 text-green-800';
-    }
+    return classInfo.type === 'lab' 
+      ? 'bg-blue-100 border-blue-300 text-blue-800'
+      : 'bg-green-100 border-green-300 text-green-800';
   };
 
   return (
@@ -105,8 +132,8 @@ const TimetableDisplay = ({ data, institutionId, onEdit }) => {
         </CardContent>
       </Card>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Detailed Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
@@ -122,10 +149,10 @@ const TimetableDisplay = ({ data, institutionId, onEdit }) => {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
-              <Users className="h-5 w-5 text-green-600" />
+              <BookOpen className="h-5 w-5 text-green-600" />
               <div>
-                <div className="text-2xl font-bold text-green-600">{summary?.total_classes_scheduled || 32}</div>
-                <div className="text-sm text-gray-600">Classes Scheduled</div>
+                <div className="text-2xl font-bold text-green-600">{stats.totalClasses}</div>
+                <div className="text-sm text-gray-600">Total Classes</div>
               </div>
             </div>
           </CardContent>
@@ -134,10 +161,10 @@ const TimetableDisplay = ({ data, institutionId, onEdit }) => {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
-              <Calendar className="h-5 w-5 text-purple-600" />
+              <GraduationCap className="h-5 w-5 text-purple-600" />
               <div>
-                <div className="text-2xl font-bold text-purple-600">{sortedDays.length}</div>
-                <div className="text-sm text-gray-600">Working Days</div>
+                <div className="text-2xl font-bold text-purple-600">{stats.lectureCount}</div>
+                <div className="text-sm text-gray-600">Lectures</div>
               </div>
             </div>
           </CardContent>
@@ -146,11 +173,48 @@ const TimetableDisplay = ({ data, institutionId, onEdit }) => {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
-              <Clock className="h-5 w-5 text-orange-600" />
+              <Calendar className="h-5 w-5 text-orange-600" />
               <div>
-                <div className="text-2xl font-bold text-orange-600">0</div>
-                <div className="text-sm text-gray-600">Conflicts</div>
+                <div className="text-2xl font-bold text-orange-600">{stats.labCount}</div>
+                <div className="text-sm text-gray-600">Lab Sessions</div>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Detailed Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Course Distribution</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {Object.entries(stats.courseStats).map(([course, count]) => (
+                <div key={course} className="flex justify-between items-center">
+                  <span className="text-sm font-medium">{course}</span>
+                  <Badge variant="outline">{count} classes</Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Teacher Workload</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {Object.entries(stats.teacherWorkload).map(([teacher, workload]) => (
+                <div key={teacher} className="flex justify-between items-center">
+                  <span className="text-sm font-medium">{teacher}</span>
+                  <Badge variant={workload > 8 ? "destructive" : "default"}>
+                    {workload} hours/week
+                  </Badge>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
@@ -164,7 +228,7 @@ const TimetableDisplay = ({ data, institutionId, onEdit }) => {
               <strong>Institution ID:</strong> {institutionId}
             </div>
             <div>
-              <strong>Generated:</strong> {timestamp ? formatISTTime(timestamp) : formatISTTime(new Date())} IST
+              <strong>Generated At:</strong> {formatISTTime(timestamp)} IST
             </div>
             <div className="flex items-center space-x-2">
               <Badge variant="outline">Lunch: {lunchStart} - {lunchEnd}</Badge>
@@ -176,7 +240,7 @@ const TimetableDisplay = ({ data, institutionId, onEdit }) => {
         </CardContent>
       </Card>
 
-      {/* Improved Timetable with Lunch Breaks */}
+      {/* Rest of the timetable display code stays the same... */}
       <Card>
         <CardHeader>
           <CardTitle className="text-xl">Weekly Timetable</CardTitle>
@@ -201,7 +265,6 @@ const TimetableDisplay = ({ data, institutionId, onEdit }) => {
                       {timeSlot}
                     </td>
                     {sortedDays.map(day => {
-                      // Check if this is lunch time
                       if (isLunchTime(timeSlot)) {
                         return (
                           <td key={`${day}-${timeSlot}`} className="border border-gray-300 p-2">
@@ -270,7 +333,7 @@ const TimetableDisplay = ({ data, institutionId, onEdit }) => {
             </div>
             <div className="flex items-center space-x-2">
               <div className="w-4 h-4 bg-blue-100 border border-blue-300 rounded"></div>
-              <span className="text-sm">Lab</span>
+              <span className="text-sm">Lab Session</span>
             </div>
             <div className="flex items-center space-x-2">
               <div className="w-4 h-4 bg-orange-100 border border-orange-300 rounded"></div>

@@ -59,9 +59,19 @@ async def generate_timetable(
         # Run optimization
         result = optimizer.optimize()
         
-        # Get IST timestamp
+        # Get current IST time
         ist_timezone = pytz.timezone('Asia/Kolkata')
-        ist_time = datetime.now(ist_timezone)
+        current_utc = datetime.utcnow()
+        current_ist = current_utc.replace(tzinfo=pytz.utc).astimezone(ist_timezone)
+        
+        return TimetableResponse(
+            timetable=result['timetable'],
+            fitness_score=result['fitness_score'],
+            summary=result['summary'],
+            generation_count=result['generation'],
+            institution_id=request.institution_id,
+            timestamp=current_ist.isoformat()  # Proper IST timestamp
+        )
         
         # Save to Firebase in background
         firebase_service = get_firebase_service()
@@ -78,14 +88,6 @@ async def generate_timetable(
             request.dict()
         )
         
-        return TimetableResponse(
-            timetable=result['timetable'],
-            fitness_score=result['fitness_score'],
-            summary=result['summary'],
-            generation_count=result['generation'],
-            institution_id=request.institution_id,
-            timestamp=ist_time  # Use IST time
-        )
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Timetable generation failed: {str(e)}")
