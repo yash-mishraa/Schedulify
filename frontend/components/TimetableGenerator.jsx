@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/Button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import { Alert, AlertDescription } from './ui/alert';
-import { Loader2, RefreshCw, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, RefreshCw, AlertCircle, CheckCircle, XCircle, Edit3 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
@@ -21,17 +21,17 @@ const TimetableGenerator = ({ institutionId }) => {
   const [activeTab, setActiveTab] = useState('input');
   const [apiStatus, setApiStatus] = useState('checking');
   const [lastPing, setLastPing] = useState(null);
+  const [savedFormData, setSavedFormData] = useState(null); // Store form data for editing
 
   // Check API connection on component mount
   useEffect(() => {
     checkApiConnection();
     
-    // Set up keep-alive ping every 14 minutes
     const keepAliveInterval = setInterval(() => {
       if (apiStatus === 'connected') {
         pingBackend();
       }
-    }, 14 * 60 * 1000); // 14 minutes
+    }, 14 * 60 * 1000);
 
     return () => clearInterval(keepAliveInterval);
   }, [apiStatus]);
@@ -50,8 +50,7 @@ const TimetableGenerator = ({ institutionId }) => {
     setApiStatus('checking');
     setError('');
     
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL;
-    console.log('Checking backend URL:', backendUrl);
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://schedulify-backend-h9ld.onrender.com';
     
     if (!backendUrl) {
       setApiStatus('disconnected');
@@ -60,14 +59,11 @@ const TimetableGenerator = ({ institutionId }) => {
     }
     
     try {
-      // Show loading message for first attempt
       toast.loading('Connecting to backend...', { id: 'connection' });
       
       const response = await axios.get(`${backendUrl}/health`, {
-        timeout: 30000 // 30 second timeout for initial connection
+        timeout: 30000
       });
-      
-      console.log('Backend response:', response.data);
       
       if (response.status === 200) {
         setApiStatus('connected');
@@ -96,12 +92,14 @@ const TimetableGenerator = ({ institutionId }) => {
     }
   };
 
-  // Rest of your component code stays the same...
   const handleGenerateTimetable = async (formData) => {
     if (apiStatus !== 'connected') {
       toast.error('Backend server is not accessible. Please check connection first.');
       return;
     }
+
+    // Save form data for future editing
+    setSavedFormData(formData);
 
     setLoading(true);
     setError('');
@@ -132,7 +130,20 @@ const TimetableGenerator = ({ institutionId }) => {
         { timeout: 300000 }
       );
 
-      setTimetableData(response.data);
+      // Add constraints to the response data for lunch break display
+      const enhancedData = {
+        ...response.data,
+        constraints: {
+          lunch_start: formData.lunch_start,
+          lunch_end: formData.lunch_end,
+          working_days: formData.working_days,
+          start_time: formData.start_time,
+          end_time: formData.end_time,
+          lecture_duration: formData.lecture_duration
+        }
+      };
+
+      setTimetableData(enhancedData);
       setActiveTab('timetable');
       toast.success('Timetable generated successfully!', { id: 'generating' });
       
@@ -153,6 +164,12 @@ const TimetableGenerator = ({ institutionId }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Handle edit functionality
+  const handleEditTimetable = () => {
+    setActiveTab('input');
+    toast.success('Switched to edit mode. Modify your settings and regenerate.');
   };
 
   const getStatusIcon = () => {
@@ -243,7 +260,6 @@ const TimetableGenerator = ({ institutionId }) => {
         </CardContent>
       </Card>
 
-      {/* Rest of your component JSX stays the same... */}
       {error && (
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
@@ -251,9 +267,56 @@ const TimetableGenerator = ({ institutionId }) => {
         </Alert>
       )}
 
+      {validationResults && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-lg">Validation Results</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {validationResults.errors?.length > 0 && (
+              <div className="mb-4">
+                <h4 className="text-red-600 font-semibold mb-2 flex items-center">
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Errors:
+                </h4>
+                <ul className="list-disc list-inside text-red-600 space-y-1 ml-6">
+                  {validationResults.errors.map((error, index) => (
+                    <li key={index}>{error}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {validationResults.warnings?.length > 0 && (
+              <div>
+                <h4 className="text-yellow-600 font-semibold mb-2 flex items-center">
+                  <AlertCircle className="h-4 w-4 mr-2" />
+                  Warnings:
+                </h4>
+                <ul className="list-disc list-inside text-yellow-600 space-y-1 ml-6">
+                  {validationResults.warnings.map((warning, index) => (
+                    <li key={index}>{warning}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {validationResults.is_valid && (
+              <div className="text-green-600 flex items-center">
+                <CheckCircle className="h-4 w-4 mr-2" />
+                All validations passed! Ready to generate timetable.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="input">Input Configuration</TabsTrigger>
+          <TabsTrigger value="input">
+            <div className="flex items-center space-x-2">
+              <span>Input Configuration</span>
+              {timetableData && <Edit3 className="h-4 w-4" />}
+            </div>
+          </TabsTrigger>
           <TabsTrigger value="timetable" disabled={!timetableData}>
             Generated Timetable
           </TabsTrigger>
@@ -268,6 +331,7 @@ const TimetableGenerator = ({ institutionId }) => {
             loading={loading}
             validationResults={validationResults}
             apiStatus={apiStatus}
+            initialData={savedFormData} // Pass saved data for editing
           />
         </TabsContent>
 
@@ -276,6 +340,7 @@ const TimetableGenerator = ({ institutionId }) => {
             <TimetableDisplay 
               data={timetableData}
               institutionId={institutionId}
+              onEdit={handleEditTimetable}
             />
           )}
         </TabsContent>

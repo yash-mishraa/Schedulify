@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/Button';
 import { Input } from './ui/input';
@@ -9,7 +9,7 @@ import { Textarea } from './ui/textarea';
 import { Checkbox } from './ui/checkbox';
 import { Plus, Trash2 } from 'lucide-react';
 
-const InputForm = ({ onSubmit, loading, validationResults }) => {
+const InputForm = ({ onSubmit, loading, validationResults, initialData }) => {
   const [formData, setFormData] = useState({
     working_days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
     lecture_duration: 45,
@@ -23,6 +23,13 @@ const InputForm = ({ onSubmit, loading, validationResults }) => {
     resources: { classrooms: 10, labs: 5 },
     custom_constraints: ['']
   });
+
+  // Load initial data when editing
+  useEffect(() => {
+    if (initialData) {
+      setFormData(initialData);
+    }
+  }, [initialData]);
 
   const workingDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -88,6 +95,18 @@ const InputForm = ({ onSubmit, loading, validationResults }) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {initialData && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-2 text-blue-800">
+              <span className="text-sm font-medium">
+                ✏️ Edit Mode: Modify your settings below and click "Generate Optimized Timetable" to regenerate.
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Basic Settings */}
       <Card>
         <CardHeader>
@@ -116,22 +135,19 @@ const InputForm = ({ onSubmit, loading, validationResults }) => {
             <div>
               <Label htmlFor="lecture_duration">Lecture Duration (minutes)</Label>
               <select 
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 transition-all duration-200"
                 value={formData.lecture_duration}
                 onChange={(e) => setFormData({...formData, lecture_duration: parseInt(e.target.value)})}
               >
                 <option value="30">30 minutes</option>
-                <option value="35">45 minutes</option>
-                <option value="40">45 minutes</option>
+                <option value="35">35 minutes</option>
+                <option value="40">40 minutes</option>
                 <option value="45">45 minutes</option>
                 <option value="50">50 minutes</option>
                 <option value="55">55 minutes</option>
                 <option value="60">60 minutes</option>
                 <option value="65">65 minutes</option>
-                <option value="70">70 minutes</option>
                 <option value="75">75 minutes</option>
-                <option value="80">80 minutes</option>
-                <option value="85">85 minutes</option>
                 <option value="90">90 minutes</option>
               </select>
             </div>
@@ -220,7 +236,7 @@ const InputForm = ({ onSubmit, loading, validationResults }) => {
                 <div>
                   <Label>Course Code</Label>
                   <Input
-                    placeholder="CS101"
+                    placeholder=""
                     value={course.code}
                     onChange={(e) => updateCourse(index, 'code', e.target.value)}
                   />
@@ -228,7 +244,7 @@ const InputForm = ({ onSubmit, loading, validationResults }) => {
                 <div>
                   <Label>Course Name</Label>
                   <Input
-                    placeholder="Data Structures"
+                    placeholder=""
                     value={course.name}
                     onChange={(e) => updateCourse(index, 'name', e.target.value)}
                   />
@@ -236,7 +252,7 @@ const InputForm = ({ onSubmit, loading, validationResults }) => {
                 <div>
                   <Label>Teacher</Label>
                   <Input
-                    placeholder="Dr. Smith"
+                    placeholder=""
                     value={course.teacher}
                     onChange={(e) => updateCourse(index, 'teacher', e.target.value)}
                   />
@@ -254,7 +270,7 @@ const InputForm = ({ onSubmit, loading, validationResults }) => {
                 <div>
                   <Label>Type</Label>
                   <select 
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 transition-all duration-200"
                     value={course.type}
                     onChange={(e) => updateCourse(index, 'type', e.target.value)}
                   >
@@ -309,7 +325,7 @@ const InputForm = ({ onSubmit, loading, validationResults }) => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            Custom Constraints (Guidelines)
+            Custom Constraints
             <Button
               type="button"
               variant="outline"
@@ -323,21 +339,19 @@ const InputForm = ({ onSubmit, loading, validationResults }) => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="text-sm text-gray-600 mb-4">
-            <p>Examples:</p>
-            <ul className="list-disc list-inside space-y-1 mt-2">
-            <li>'Mr. Arun not available on Monday'</li>
-<li>'Labs must be consecutive with lectures'</li>
-<li>'No classes after 4 PM on Friday'</li>
-<li>'Maximum 6 hours per day for any teacher'</li>
-
-
+            <p className="font-medium mb-2">Examples of custom constraints:</p>
+            <ul className="list-disc list-inside space-y-1 text-xs">
+              <li>Mr. Arun not available on Monday</li>
+              <li>Labs must be consecutive with lectures</li>
+              <li>No classes after 4 PM on Friday</li>
+              <li>Maximum 6 hours per day for any teacher</li>
             </ul>
           </div>
           
           {formData.custom_constraints.map((constraint, index) => (
             <div key={index} className="flex items-center space-x-2">
               <Textarea
-                placeholder="Enter custom constraint..."
+                placeholder=""
                 className="flex-1"
                 value={constraint}
                 onChange={(e) => updateConstraint(index, e.target.value)}
@@ -358,7 +372,7 @@ const InputForm = ({ onSubmit, loading, validationResults }) => {
       </Card>
 
       <Button type="submit" className="w-full" disabled={loading}>
-        {loading ? 'Generating Timetable...' : 'Generate Optimized Timetable'}
+        {loading ? 'Generating Timetable...' : initialData ? 'Regenerate Optimized Timetable' : 'Generate Optimized Timetable'}
       </Button>
     </form>
   );

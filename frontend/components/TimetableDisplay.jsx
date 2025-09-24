@@ -2,10 +2,10 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
-import { Clock, Users, Award, Calendar } from 'lucide-react';
+import { Clock, Users, Award, Calendar, Utensils } from 'lucide-react';
 
-const TimetableDisplay = ({ data, institutionId }) => {
-  const { timetable, fitness_score, summary, timestamp } = data;
+const TimetableDisplay = ({ data, institutionId, onEdit }) => {
+  const { timetable, fitness_score, summary, timestamp, constraints } = data;
 
   if (!timetable) {
     return (
@@ -20,7 +20,7 @@ const TimetableDisplay = ({ data, institutionId }) => {
   // Convert UTC timestamp to IST
   const formatISTTime = (utcTimestamp) => {
     const utcDate = new Date(utcTimestamp);
-    const istDate = new Date(utcDate.getTime() + (5.5 * 60 * 60 * 1000)); // Add 5:30 for IST
+    const istDate = new Date(utcDate.getTime() + (5.5 * 60 * 60 * 1000));
     return istDate.toLocaleString('en-IN', {
       timeZone: 'Asia/Kolkata',
       year: 'numeric',
@@ -33,6 +33,24 @@ const TimetableDisplay = ({ data, institutionId }) => {
     });
   };
 
+  // Get lunch time from constraints or use default
+  const lunchStart = constraints?.lunch_start || '12:30';
+  const lunchEnd = constraints?.lunch_end || '13:30';
+
+  // Helper to check if a time slot is lunch time
+  const isLunchTime = (timeSlot) => {
+    const [hours, minutes] = timeSlot.split(':').map(Number);
+    const slotMinutes = hours * 60 + minutes;
+    
+    const [lunchStartHours, lunchStartMinutes] = lunchStart.split(':').map(Number);
+    const lunchStartTotal = lunchStartHours * 60 + lunchStartMinutes;
+    
+    const [lunchEndHours, lunchEndMinutes] = lunchEnd.split(':').map(Number);
+    const lunchEndTotal = lunchEndHours * 60 + lunchEndMinutes;
+    
+    return slotMinutes >= lunchStartTotal && slotMinutes < lunchEndTotal;
+  };
+
   // Get all time slots and days
   const allTimeSlots = new Set();
   const allDays = Object.keys(timetable);
@@ -43,6 +61,11 @@ const TimetableDisplay = ({ data, institutionId }) => {
       allTimeSlots.add(timeSlot);
     });
   });
+
+  // Add lunch slot if it doesn't exist
+  const [lunchHour, lunchMinute] = lunchStart.split(':').map(Number);
+  const lunchSlot = `${lunchHour.toString().padStart(2, '0')}:${lunchMinute.toString().padStart(2, '0')}`;
+  allTimeSlots.add(lunchSlot);
   
   // Sort time slots
   const sortedTimeSlots = Array.from(allTimeSlots).sort((a, b) => {
@@ -67,6 +90,21 @@ const TimetableDisplay = ({ data, institutionId }) => {
 
   return (
     <div className="space-y-6">
+      {/* Edit Button */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="text-lg font-semibold">Generated Timetable</div>
+            <button
+              onClick={onEdit}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Edit Configuration
+            </button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
@@ -129,7 +167,7 @@ const TimetableDisplay = ({ data, institutionId }) => {
               <strong>Generated:</strong> {timestamp ? formatISTTime(timestamp) : formatISTTime(new Date())} IST
             </div>
             <div className="flex items-center space-x-2">
-              <Badge variant="outline">Fitness Score: {fitness_score?.toFixed(1)}</Badge>
+              <Badge variant="outline">Lunch: {lunchStart} - {lunchEnd}</Badge>
               <Badge variant={fitness_score > 5000 ? "default" : "secondary"}>
                 {fitness_score > 5000 ? "Excellent" : "Good"}
               </Badge>
@@ -138,7 +176,7 @@ const TimetableDisplay = ({ data, institutionId }) => {
         </CardContent>
       </Card>
 
-      {/* Improved Timetable */}
+      {/* Improved Timetable with Lunch Breaks */}
       <Card>
         <CardHeader>
           <CardTitle className="text-xl">Weekly Timetable</CardTitle>
@@ -163,6 +201,23 @@ const TimetableDisplay = ({ data, institutionId }) => {
                       {timeSlot}
                     </td>
                     {sortedDays.map(day => {
+                      // Check if this is lunch time
+                      if (isLunchTime(timeSlot)) {
+                        return (
+                          <td key={`${day}-${timeSlot}`} className="border border-gray-300 p-2">
+                            <div className="p-3 rounded-lg bg-orange-100 border-2 border-orange-300 text-orange-800 text-center">
+                              <div className="flex items-center justify-center space-x-2">
+                                <Utensils className="h-4 w-4" />
+                                <span className="font-bold">LUNCH</span>
+                              </div>
+                              <div className="text-xs mt-1">
+                                {lunchStart} - {lunchEnd}
+                              </div>
+                            </div>
+                          </td>
+                        );
+                      }
+
                       const classInfo = timetable[day]?.[timeSlot];
                       return (
                         <td key={`${day}-${timeSlot}`} className="border border-gray-300 p-2">
@@ -216,6 +271,10 @@ const TimetableDisplay = ({ data, institutionId }) => {
             <div className="flex items-center space-x-2">
               <div className="w-4 h-4 bg-blue-100 border border-blue-300 rounded"></div>
               <span className="text-sm">Lab</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-4 bg-orange-100 border border-orange-300 rounded"></div>
+              <span className="text-sm">Lunch Break</span>
             </div>
             <div className="flex items-center space-x-2">
               <div className="w-4 h-4 bg-gray-100 border border-gray-300 rounded"></div>
