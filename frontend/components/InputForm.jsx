@@ -121,8 +121,17 @@ const InputForm = ({ onSubmit, loading, validationResults }) => {
                 onChange={(e) => setFormData({...formData, lecture_duration: parseInt(e.target.value)})}
               >
                 <option value="30">30 minutes</option>
+                <option value="35">45 minutes</option>
+                <option value="40">45 minutes</option>
                 <option value="45">45 minutes</option>
+                <option value="50">50 minutes</option>
+                <option value="55">55 minutes</option>
                 <option value="60">60 minutes</option>
+                <option value="65">65 minutes</option>
+                <option value="70">70 minutes</option>
+                <option value="75">75 minutes</option>
+                <option value="80">80 minutes</option>
+                <option value="85">85 minutes</option>
                 <option value="90">90 minutes</option>
               </select>
             </div>
