@@ -6,6 +6,7 @@ const Button = React.forwardRef(({
   size = "default", 
   children, 
   disabled = false,
+  type = "button",
   ...props 
 }, ref) => {
   const baseClasses = "inline-flex items-center justify-center rounded-md text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 shadow-sm"
@@ -30,6 +31,7 @@ const Button = React.forwardRef(({
   
   return (
     <button
+      type={type}
       className={classes}
       ref={ref}
       disabled={disabled}

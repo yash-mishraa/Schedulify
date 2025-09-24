@@ -1,43 +1,59 @@
 import * as React from "react"
-import * as TabsPrimitive from "@radix-ui/react-tabs"
-import { cn } from "../../lib/utils"
+import { useState } from "react"
 
-const Tabs = TabsPrimitive.Root
+const Tabs = ({ value, onValueChange, className = "", children, ...props }) => {
+  return (
+    <div className={`w-full ${className}`} {...props}>
+      {React.Children.map(children, child => 
+        React.cloneElement(child, { activeTab: value, onTabChange: onValueChange })
+      )}
+    </div>
+  )
+}
 
-const TabsList = React.forwardRef(({ className, ...props }, ref) => (
-  <TabsPrimitive.List
-    ref={ref}
-    className={cn(
-      "inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground",
-      className
-    )}
-    {...props}
-  />
-))
-TabsList.displayName = TabsPrimitive.List.displayName
+const TabsList = ({ className = "", children, activeTab, onTabChange, ...props }) => {
+  return (
+    <div
+      className={`inline-flex h-10 items-center justify-center rounded-md bg-gray-100 p-1 text-gray-600 ${className}`}
+      {...props}
+    >
+      {React.Children.map(children, child => 
+        React.cloneElement(child, { activeTab, onTabChange })
+      )}
+    </div>
+  )
+}
 
-const TabsTrigger = React.forwardRef(({ className, ...props }, ref) => (
-  <TabsPrimitive.Trigger
-    ref={ref}
-    className={cn(
-      "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm",
-      className
-    )}
-    {...props}
-  />
-))
-TabsTrigger.displayName = TabsPrimitive.Trigger.displayName
+const TabsTrigger = ({ value, className = "", children, activeTab, onTabChange, disabled = false, ...props }) => {
+  const isActive = activeTab === value
+  
+  return (
+    <button
+      className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${
+        isActive 
+          ? 'bg-white text-gray-900 shadow-sm' 
+          : 'text-gray-600 hover:text-gray-900'
+      } ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
+      onClick={() => !disabled && onTabChange && onTabChange(value)}
+      disabled={disabled}
+      {...props}
+    >
+      {children}
+    </button>
+  )
+}
 
-const TabsContent = React.forwardRef(({ className, ...props }, ref) => (
-  <TabsPrimitive.Content
-    ref={ref}
-    className={cn(
-      "mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-      className
-    )}
-    {...props}
-  />
-))
-TabsContent.displayName = TabsPrimitive.Content.displayName
+const TabsContent = ({ value, className = "", children, activeTab, ...props }) => {
+  if (activeTab !== value) return null
+  
+  return (
+    <div
+      className={`mt-2 ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${className}`}
+      {...props}
+    >
+      {children}
+    </div>
+  )
+}
 
 export { Tabs, TabsList, TabsTrigger, TabsContent }
