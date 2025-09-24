@@ -316,10 +316,12 @@ const InputForm = ({ onSubmit, loading, validationResults }) => {
           <div className="text-sm text-gray-600 mb-4">
             <p>Examples:</p>
             <ul className="list-disc list-inside space-y-1 mt-2">
-              <li>"Dr. Smith not available on Monday"</li>
-              <li>"Labs must be consecutive with lectures"</li>
-              <li>"No classes after 4 PM on Friday"</li>
-              <li>"Maximum 6 hours per day for any teacher"</li>
+            <li>'Mr. Arun not available on Monday'</li>
+<li>'Labs must be consecutive with lectures'</li>
+<li>'No classes after 4 PM on Friday'</li>
+<li>'Maximum 6 hours per day for any teacher'</li>
+
+
             </ul>
           </div>
           
