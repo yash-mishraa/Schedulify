@@ -20,32 +20,83 @@ const TimetableGenerator = ({ institutionId }) => {
   const [validationResults, setValidationResults] = useState(null);
   const [activeTab, setActiveTab] = useState('input');
   const [apiStatus, setApiStatus] = useState('checking');
+  const [lastPing, setLastPing] = useState(null);
 
   // Check API connection on component mount
   useEffect(() => {
     checkApiConnection();
-  }, []);
+    
+    // Set up keep-alive ping every 14 minutes
+    const keepAliveInterval = setInterval(() => {
+      if (apiStatus === 'connected') {
+        pingBackend();
+      }
+    }, 14 * 60 * 1000); // 14 minutes
+
+    return () => clearInterval(keepAliveInterval);
+  }, [apiStatus]);
+
+  const pingBackend = async () => {
+    try {
+      await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/health`, { timeout: 5000 });
+      setLastPing(new Date().toLocaleTimeString());
+      console.log('Backend keep-alive ping successful');
+    } catch (error) {
+      console.log('Keep-alive ping failed, backend may be sleeping');
+    }
+  };
 
   const checkApiConnection = async () => {
     setApiStatus('checking');
+    setError('');
+    
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL;
+    console.log('Checking backend URL:', backendUrl);
+    
+    if (!backendUrl) {
+      setApiStatus('disconnected');
+      setError('Backend URL not configured. Please check environment variables.');
+      return;
+    }
+    
     try {
-      const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/health`, {
-        timeout: 10000 // 10 second timeout
+      // Show loading message for first attempt
+      toast.loading('Connecting to backend...', { id: 'connection' });
+      
+      const response = await axios.get(`${backendUrl}/health`, {
+        timeout: 30000 // 30 second timeout for initial connection
       });
+      
+      console.log('Backend response:', response.data);
       
       if (response.status === 200) {
         setApiStatus('connected');
         setError('');
+        toast.success('Connected to backend!', { id: 'connection' });
+        setLastPing(new Date().toLocaleTimeString());
       } else {
-        throw new Error('API health check failed');
+        throw new Error('Backend responded with non-200 status');
       }
     } catch (err) {
       console.error('API connection error:', err);
       setApiStatus('disconnected');
-      setError('Backend server is not accessible. The service may be starting up (please wait 1-2 minutes) or there may be a connection issue.');
+      
+      let errorMessage = 'Backend server is not accessible. ';
+      
+      if (err.code === 'ECONNABORTED' || err.message.includes('timeout')) {
+        errorMessage += 'The service is starting up (this can take 30-60 seconds on free tier). Please wait and try again.';
+      } else if (err.response?.status === 503) {
+        errorMessage += 'Service temporarily unavailable. The backend is waking up.';
+      } else {
+        errorMessage += 'Please check if the backend is running and the URL is correct.';
+      }
+      
+      setError(errorMessage);
+      toast.error('Connection failed', { id: 'connection' });
     }
   };
 
+  // Rest of your component code stays the same...
   const handleGenerateTimetable = async (formData) => {
     if (apiStatus !== 'connected') {
       toast.error('Backend server is not accessible. Please check connection first.');
@@ -56,14 +107,12 @@ const TimetableGenerator = ({ institutionId }) => {
     setError('');
     
     try {
-      // Show loading toast
       toast.loading('Validating input data...', { id: 'generating' });
 
-      // First validate the inputs
       const validationResponse = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/v1/timetable/validate`,
         { ...formData, institution_id: institutionId },
-        { timeout: 30000 } // 30 second timeout
+        { timeout: 30000 }
       );
 
       setValidationResults(validationResponse.data);
@@ -75,14 +124,12 @@ const TimetableGenerator = ({ institutionId }) => {
         return;
       }
 
-      // Update loading message
       toast.loading('Generating optimized timetable... This may take 2-3 minutes.', { id: 'generating' });
 
-      // Generate timetable with longer timeout
       const response = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/v1/timetable/generate`,
         { ...formData, institution_id: institutionId },
-        { timeout: 300000 } // 5 minute timeout for AI processing
+        { timeout: 300000 }
       );
 
       setTimetableData(response.data);
@@ -122,9 +169,9 @@ const TimetableGenerator = ({ institutionId }) => {
   const getStatusText = () => {
     switch (apiStatus) {
       case 'connected':
-        return 'Server Connected';
+        return `Server Connected ${lastPing ? `(Last ping: ${lastPing})` : ''}`;
       case 'disconnected':
-        return 'Server Offline';
+        return 'Server Offline - Click "Wake Up Backend" below';
       default:
         return 'Checking Connection...';
     }
@@ -158,7 +205,7 @@ const TimetableGenerator = ({ institutionId }) => {
                 {getStatusText()}
               </span>
             </div>
-            {apiStatus !== 'connected' && (
+            <div className="flex space-x-2">
               <Button
                 onClick={checkApiConnection}
                 variant="outline"
@@ -166,66 +213,42 @@ const TimetableGenerator = ({ institutionId }) => {
                 disabled={apiStatus === 'checking'}
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${apiStatus === 'checking' ? 'animate-spin' : ''}`} />
-                Retry Connection
+                Check Connection
               </Button>
-            )}
+              {apiStatus === 'disconnected' && (
+                <Button
+                  onClick={() => {
+                    window.open(`${process.env.NEXT_PUBLIC_API_URL}/health`, '_blank');
+                    setTimeout(() => checkApiConnection(), 5000);
+                  }}
+                  variant="default"
+                  size="sm"
+                >
+                  Wake Up Backend
+                </Button>
+              )}
+            </div>
           </div>
           {apiStatus === 'disconnected' && (
-            <div className="mt-3 text-sm text-gray-600">
-              <p>The backend server may be sleeping (free tier). It will wake up automatically when accessed.</p>
-              <p className="text-xs mt-1">⏳ Please wait 30-60 seconds and click "Retry Connection"</p>
+            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <p className="text-sm text-blue-800 font-medium mb-2">Backend URL: {process.env.NEXT_PUBLIC_API_URL}</p>
+              <p className="text-sm text-blue-700">
+                🔧 <strong>Quick Fix:</strong> Click "Wake Up Backend" button above, wait 30 seconds, then click "Check Connection"
+              </p>
+              <p className="text-xs mt-1 text-blue-600">
+                Free tier backends sleep after 15 minutes of inactivity. This is normal behavior.
+              </p>
             </div>
           )}
         </CardContent>
       </Card>
 
+      {/* Rest of your component JSX stays the same... */}
       {error && (
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>{error}</AlertDescription>
         </Alert>
-      )}
-
-      {validationResults && (
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="text-lg">Validation Results</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {validationResults.errors?.length > 0 && (
-              <div className="mb-4">
-                <h4 className="text-red-600 font-semibold mb-2 flex items-center">
-                  <XCircle className="h-4 w-4 mr-2" />
-                  Errors:
-                </h4>
-                <ul className="list-disc list-inside text-red-600 space-y-1 ml-6">
-                  {validationResults.errors.map((error, index) => (
-                    <li key={index}>{error}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {validationResults.warnings?.length > 0 && (
-              <div>
-                <h4 className="text-yellow-600 font-semibold mb-2 flex items-center">
-                  <AlertCircle className="h-4 w-4 mr-2" />
-                  Warnings:
-                </h4>
-                <ul className="list-disc list-inside text-yellow-600 space-y-1 ml-6">
-                  {validationResults.warnings.map((warning, index) => (
-                    <li key={index}>{warning}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {validationResults.is_valid && (
-              <div className="text-green-600 flex items-center">
-                <CheckCircle className="h-4 w-4 mr-2" />
-                All validations passed! Ready to generate timetable.
-              </div>
-            )}
-          </CardContent>
-        </Card>
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -279,7 +302,6 @@ const TimetableGenerator = ({ institutionId }) => {
                 </p>
                 <div className="text-sm text-gray-500">
                   <p>⏳ This process typically takes 2-3 minutes</p>
-                  <p>🧠 Processing {timetableData?.courses?.length || 0} courses</p>
                 </div>
               </div>
             </div>
