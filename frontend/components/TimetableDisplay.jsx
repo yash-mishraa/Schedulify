@@ -285,30 +285,38 @@ const TimetableDisplay = ({ data, institutionId, onEdit }) => {
                       return (
                         <td key={`${day}-${timeSlot}`} className="border border-gray-300 p-2">
                           {classInfo ? (
-                            <div className={`p-3 rounded-lg border-2 ${getClassColor(classInfo)} text-sm`}>
-                              <div className="font-bold text-sm mb-1">
-                                {classInfo.course_code || classInfo.code || 'N/A'}
-                              </div>
-                              <div className="text-xs mb-1">
-                                {classInfo.teacher || 'No Teacher'}
-                              </div>
-                              <div className="flex items-center justify-between">
-                                <Badge 
-                                  variant={classInfo.type === 'lab' ? 'default' : 'secondary'} 
-                                  className="text-xs px-1 py-0"
-                                >
-                                  {classInfo.type === 'lab' ? 'Lab' : 'Lecture'}
-                                </Badge>
-                                <span className="text-xs text-gray-600">
-                                  {classInfo.room || 'Room 1'}
-                                </span>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="p-3 text-center text-gray-400 text-sm">
-                              Free
-                            </div>
-                          )}
+  <div className={`p-3 rounded-lg border-2 ${getClassColor(classInfo)} text-sm`}>
+    <div className="font-bold text-sm mb-1">
+      {classInfo.course_code || classInfo.code || 'N/A'}
+      {classInfo.type === 'lab' && classInfo.is_consecutive && (
+        <span className="text-xs ml-1 bg-blue-200 px-1 rounded">
+          {classInfo.session_part}
+        </span>
+      )}
+    </div>
+    <div className="text-xs mb-1">
+      {classInfo.teacher || 'No Teacher'}
+    </div>
+    <div className="flex items-center justify-between">
+      <Badge 
+        variant={classInfo.type === 'lab' ? 'default' : 'secondary'} 
+        className="text-xs px-1 py-0"
+      >
+        {classInfo.type === 'lab' ? 'Lab' : 'Lecture'}
+        {classInfo.type === 'lab' && classInfo.total_duration > 1 && (
+          <span className="ml-1">({classInfo.total_duration}p)</span>
+        )}
+      </Badge>
+      <span className="text-xs text-gray-600">
+        {classInfo.room || 'Room 1'}
+      </span>
+    </div>
+  </div>
+) : (
+  <div className="p-3 text-center text-gray-400 text-sm">
+    Free
+  </div>
+)}
                         </td>
                       );
                     })}

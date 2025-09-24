@@ -12,6 +12,7 @@ class Course:
     lectures_per_week: int
     type: str = "lecture"  # "lecture" or "lab"
     duration: int = 45
+    lab_duration: int = 2  # Number of consecutive periods for labs
 
 class GeneticTimetableOptimizer:
     def __init__(self, courses: List[Course], constraints: Dict[str, Any], resources: Dict[str, int]):
@@ -24,75 +25,10 @@ class GeneticTimetableOptimizer:
         self.crossover_rate = 0.8
         self.elite_size = int(0.1 * self.population_size)
         
-        # Parse custom constraints
-        self.custom_constraints = self._parse_custom_constraints(constraints.get('custom_constraints', []))
-        
         # Generate time slots
         self.time_slots = self._generate_time_slots()
         self.working_days = constraints.get('working_days', ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'])
         
-    def _parse_custom_constraints(self, custom_constraints):
-        """Parse natural language constraints into structured rules"""
-        parsed = {
-            'consecutive_labs': [],
-            'teacher_unavailable': [],
-            'time_restrictions': [],
-            'consecutive_lectures': []
-        }
-        
-        for constraint in custom_constraints:
-            if not constraint or not constraint.strip():
-                continue
-                
-            constraint_lower = constraint.lower().strip()
-            
-            # Parse consecutive lab constraints
-            if 'lab' in constraint_lower and 'consecutive' in constraint_lower:
-                if 'lecture' in constraint_lower or 'theory' in constraint_lower:
-                    # Extract course code/subject
-                    words = constraint.split()
-                    for word in words:
-                        if any(c.isdigit() for c in word) and len(word) <= 6:  # Likely course code
-                            parsed['consecutive_labs'].append({
-                                'course_pattern': word.upper(),
-                                'type': 'after_lectures'
-                            })
-                            break
-                    else:
-                        # General rule for all labs
-                        parsed['consecutive_labs'].append({
-                            'course_pattern': '*',
-                            'type': 'after_lectures'
-                        })
-            
-            # Parse teacher availability constraints
-            elif 'not available' in constraint_lower:
-                words = constraint.split()
-                teacher_name = ""
-                unavailable_day = ""
-                
-                # Extract teacher name
-                for i, word in enumerate(words):
-                    if word.lower() in ['mr.', 'ms.', 'mrs.', 'dr.', 'prof.']:
-                        if i + 1 < len(words):
-                            teacher_name = f"{word} {words[i + 1]}"
-                            break
-                
-                # Extract day
-                days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
-                for day in days:
-                    if day in constraint_lower:
-                        unavailable_day = day.capitalize()
-                        break
-                
-                if teacher_name and unavailable_day:
-                    parsed['teacher_unavailable'].append({
-                        'teacher': teacher_name,
-                        'day': unavailable_day
-                    })
-        
-        return parsed
-    
     def _generate_time_slots(self):
         """Generate time slots based on constraints"""
         start_time = self.constraints.get('start_time', '09:00')
@@ -130,8 +66,148 @@ class GeneticTimetableOptimizer:
         
         return slots
     
+    def _can_place_consecutive_lab(self, timetable, day, start_slot_index, lab_duration, course_info):
+        """Check if a lab can be placed in consecutive slots"""
+        if start_slot_index + lab_duration > len(self.time_slots):
+            return False
+        
+        # Check if all required consecutive slots are free
+        for i in range(lab_duration):
+            slot_index = start_slot_index + i
+            if slot_index >= len(self.time_slots):
+                return False
+            
+            time_slot = self.time_slots[slot_index]
+            if timetable[day][time_slot] is not None:
+                return False
+        
+        # Check for teacher conflicts in these slots
+        teacher = course_info.get('teacher', '')
+        for i in range(lab_duration):
+            slot_index = start_slot_index + i
+            time_slot = self.time_slots[slot_index]
+            
+            # Check if teacher is busy at this time on any day
+            for other_day in self.working_days:
+                if other_day != day and timetable[other_day][time_slot] is not None:
+                    other_class = timetable[other_day][time_slot]
+                    if other_class.get('teacher', '') == teacher:
+                        return False
+        
+        return True
+    
+    def _place_consecutive_lab(self, timetable, day, start_slot_index, lab_duration, course_info):
+        """Place a lab in consecutive slots"""
+        placed_slots = []
+        
+        for i in range(lab_duration):
+            slot_index = start_slot_index + i
+            time_slot = self.time_slots[slot_index]
+            
+            lab_info = course_info.copy()
+            lab_info['session_part'] = f"{i+1}/{lab_duration}"
+            lab_info['is_consecutive'] = True
+            lab_info['total_duration'] = lab_duration
+            
+            timetable[day][time_slot] = lab_info
+            placed_slots.append(time_slot)
+        
+        return placed_slots
+    
+    def create_individual(self):
+        """Create a random timetable individual with proper consecutive lab placement"""
+        timetable = {}
+        
+        # Initialize empty timetable
+        for day in self.working_days:
+            timetable[day] = {}
+            for time_slot in self.time_slots:
+                timetable[day][time_slot] = None
+        
+        # Separate courses by type
+        regular_courses = []
+        lab_courses = []
+        
+        for course in self.courses:
+            for i in range(course.lectures_per_week):
+                class_info = {
+                    'course_code': course.code,
+                    'course_name': course.name,
+                    'teacher': course.teacher,
+                    'type': course.type,
+                    'room': f"{'Lab' if course.type == 'lab' else 'Room'} {random.randint(1, self.resources.get('classrooms', 5))}",
+                    'lab_duration': course.lab_duration if course.type == 'lab' else 1
+                }
+                
+                if course.type == 'lab':
+                    lab_courses.append(class_info)
+                else:
+                    regular_courses.append(class_info)
+        
+        # Place lab courses first (they need consecutive slots)
+        for lab_info in lab_courses:
+            placed = False
+            attempts = 0
+            max_attempts = 100
+            
+            while not placed and attempts < max_attempts:
+                day = random.choice(self.working_days)
+                start_slot_index = random.randint(0, len(self.time_slots) - lab_info['lab_duration'])
+                
+                if self._can_place_consecutive_lab(timetable, day, start_slot_index, lab_info['lab_duration'], lab_info):
+                    self._place_consecutive_lab(timetable, day, start_slot_index, lab_info['lab_duration'], lab_info)
+                    placed = True
+                
+                attempts += 1
+            
+            # If still not placed, try to place in any single available slot (fallback)
+            if not placed:
+                for attempt in range(50):
+                    day = random.choice(self.working_days)
+                    time_slot = random.choice(self.time_slots)
+                    
+                    if timetable[day][time_slot] is None:
+                        lab_info['session_part'] = "1/1"
+                        lab_info['is_consecutive'] = False
+                        lab_info['total_duration'] = 1
+                        timetable[day][time_slot] = lab_info
+                        placed = True
+                        break
+        
+        # Place regular lecture courses
+        for lecture_info in regular_courses:
+            placed = False
+            attempts = 0
+            
+            while not placed and attempts < 50:
+                day = random.choice(self.working_days)
+                time_slot = random.choice(self.time_slots)
+                
+                if timetable[day][time_slot] is None:
+                    # Check for teacher conflicts
+                    teacher = lecture_info.get('teacher', '')
+                    conflict = False
+                    
+                    for other_day in self.working_days:
+                        if other_day != day and timetable[other_day][time_slot] is not None:
+                            other_class = timetable[other_day][time_slot]
+                            if other_class.get('teacher', '') == teacher:
+                                conflict = True
+                                break
+                    
+                    if not conflict:
+                        lecture_info['session_part'] = "1/1"
+                        lecture_info['is_consecutive'] = False
+                        lecture_info['total_duration'] = 1
+                        timetable[day][time_slot] = lecture_info
+                        placed = True
+                
+                attempts += 1
+        
+        return timetable
+    
     def calculate_fitness(self, timetable):
-        """Enhanced fitness calculation with consecutive lab constraints"""
+        """Calculate fitness score with emphasis on consecutive lab placement"""
         fitness = 1000  # Base fitness
         
         # Check basic constraints
@@ -139,83 +215,63 @@ class GeneticTimetableOptimizer:
         fitness += self._check_teacher_workload(timetable) * 300
         fitness += self._check_room_utilization(timetable) * 200
         
-        # Check consecutive lab constraints
-        fitness += self._check_consecutive_labs(timetable) * 400
-        
-        # Check custom constraints
-        fitness += self._check_custom_constraints(timetable) * 300
+        # Heavy bonus for proper consecutive lab placement
+        fitness += self._check_consecutive_lab_placement(timetable) * 800
         
         # Check course completion
         fitness += self._check_course_completion(timetable) * 600
         
         return max(0, fitness)
     
-    def _check_consecutive_labs(self, timetable):
-        """Check if labs are scheduled consecutively after lectures"""
+    def _check_consecutive_lab_placement(self, timetable):
+        """Check if labs are properly placed in consecutive slots"""
         score = 0
         
-        for constraint in self.custom_constraints['consecutive_labs']:
-            course_pattern = constraint['course_pattern']
+        for day in self.working_days:
+            day_schedule = timetable[day]
             
-            for day in self.working_days:
-                if day not in timetable:
-                    continue
-                    
-                day_schedule = timetable[day]
-                time_slots = sorted(day_schedule.keys(), key=lambda x: tuple(map(int, x.split(':'))))
+            # Group consecutive lab sessions
+            for i, time_slot in enumerate(self.time_slots):
+                class_info = day_schedule.get(time_slot)
                 
-                # Find lectures and labs for matching courses
-                lectures = []
-                labs = []
-                
-                for i, time_slot in enumerate(time_slots):
-                    class_info = day_schedule.get(time_slot)
-                    if not class_info:
-                        continue
+                if class_info and class_info.get('type') == 'lab':
+                    is_consecutive = class_info.get('is_consecutive', False)
+                    total_duration = class_info.get('total_duration', 1)
+                    session_part = class_info.get('session_part', '1/1')
                     
-                    course_code = class_info.get('course_code', '')
-                    class_type = class_info.get('type', 'lecture')
+                    if is_consecutive and total_duration > 1:
+                        # Check if this is the start of a consecutive lab session
+                        if session_part == "1/" + str(total_duration):
+                            # Verify all consecutive slots are properly filled
+                            consecutive_valid = True
+                            course_code = class_info.get('course_code', '')
+                            teacher = class_info.get('teacher', '')
+                            
+                            for j in range(total_duration):
+                                if i + j >= len(self.time_slots):
+                                    consecutive_valid = False
+                                    break
+                                
+                                check_slot = self.time_slots[i + j]
+                                check_class = day_schedule.get(check_slot)
+                                
+                                if (not check_class or 
+                                    check_class.get('course_code') != course_code or
+                                    check_class.get('teacher') != teacher or
+                                    check_class.get('type') != 'lab'):
+                                    consecutive_valid = False
+                                    break
+                            
+                            if consecutive_valid:
+                                score += 200  # Big bonus for proper consecutive placement
+                            else:
+                                score -= 100  # Penalty for broken consecutive sequence
                     
-                    # Check if course matches pattern
-                    if course_pattern == '*' or course_pattern in course_code:
-                        if class_type == 'lecture':
-                            lectures.append((i, time_slot, course_code))
-                        elif class_type == 'lab':
-                            labs.append((i, time_slot, course_code))
-                
-                # Check if labs are consecutive after lectures for same course
-                for lab_info in labs:
-                    lab_index, lab_time, lab_course = lab_info
+                    elif total_duration > 1 and not is_consecutive:
+                        score -= 150  # Penalty for lab that should be consecutive but isn't
                     
-                    # Find preceding lectures of same course
-                    for lecture_info in lectures:
-                        lecture_index, lecture_time, lecture_course = lecture_info
-                        
-                        # Check if same course and lab is immediately after lecture
-                        if (lab_course == lecture_course and 
-                            lab_index == lecture_index + 1):
-                            score += 50  # Reward consecutive scheduling
-                        elif (lab_course == lecture_course and 
-                              lab_index > lecture_index and 
-                              lab_index <= lecture_index + 2):  # Within 2 slots
-                            score += 25  # Partial reward for nearby scheduling
-        
-        return score
-    
-    def _check_custom_constraints(self, timetable):
-        """Check custom constraints like teacher availability"""
-        score = 0
-        
-        # Check teacher unavailability
-        for constraint in self.custom_constraints['teacher_unavailable']:
-            teacher = constraint['teacher'].lower()
-            day = constraint['day']
-            
-            if day in timetable:
-                day_schedule = timetable[day]
-                for time_slot, class_info in day_schedule.items():
-                    if class_info and teacher in class_info.get('teacher', '').lower():
-                        score -= 100  # Penalty for violating availability
+                    else:
+                        score += 10  # Small bonus for single-period labs
         
         return score
     
@@ -243,13 +299,21 @@ class GeneticTimetableOptimizer:
                     teachers_at_time[time_slot].append(teacher)
                     score += 10  # Reward for no conflict
                 
-                # Check room conflicts
+                # Check room conflicts (less strict for consecutive lab sessions of same course)
                 if time_slot not in rooms_at_time:
-                    rooms_at_time[time_slot] = []
+                    rooms_at_time[time_slot] = {}
+                
                 if room in rooms_at_time[time_slot]:
-                    score -= 150  # Penalty for room conflict
+                    existing_class = rooms_at_time[time_slot][room]
+                    # Allow same course consecutive lab sessions in same room
+                    if (class_info.get('course_code') == existing_class.get('course_code') and
+                        class_info.get('type') == 'lab' and existing_class.get('type') == 'lab' and
+                        class_info.get('is_consecutive') and existing_class.get('is_consecutive')):
+                        score += 5  # Small bonus for using same lab room for consecutive sessions
+                    else:
+                        score -= 150  # Penalty for room conflict
                 else:
-                    rooms_at_time[time_slot].append(room)
+                    rooms_at_time[time_slot][room] = class_info
                     score += 5  # Reward for no conflict
         
         return score
@@ -326,93 +390,49 @@ class GeneticTimetableOptimizer:
         
         return score
     
-    def create_individual(self):
-        """Create a random timetable individual with consecutive lab logic"""
-        timetable = {}
+    def _tournament_selection(self, population, fitness_scores, tournament_size=5):
+        """Select individual using tournament selection"""
+        tournament_indices = random.sample(range(len(population)), min(tournament_size, len(population)))
+        best_index = max(tournament_indices, key=lambda i: fitness_scores[i])
+        return copy.deepcopy(population[best_index])
+    
+    def _crossover(self, parent1, parent2):
+        """Crossover two timetables while preserving consecutive lab sessions"""
+        child = {}
         
-        # Initialize empty timetable
         for day in self.working_days:
-            timetable[day] = {}
+            child[day] = {}
             for time_slot in self.time_slots:
-                timetable[day][time_slot] = None
+                if random.random() < 0.5:
+                    child[day][time_slot] = copy.deepcopy(parent1[day][time_slot])
+                else:
+                    child[day][time_slot] = copy.deepcopy(parent2[day][time_slot])
         
-        # Schedule classes with consecutive lab constraint consideration
-        all_classes = []
-        for course in self.courses:
-            for i in range(course.lectures_per_week):
-                class_info = {
-                    'course_code': course.code,
-                    'course_name': course.name,
-                    'teacher': course.teacher,
-                    'type': course.type,
-                    'room': f"{'Lab' if course.type == 'lab' else 'Room'} {random.randint(1, self.resources.get('classrooms', 5))}"
-                }
-                all_classes.append(class_info)
+        return child
+    
+    def _mutate(self, individual):
+        """Mutate an individual while preserving consecutive lab sessions"""
+        mutated = copy.deepcopy(individual)
         
-        # Group classes by course for consecutive scheduling
-        course_classes = {}
-        for class_info in all_classes:
-            course_code = class_info['course_code']
-            if course_code not in course_classes:
-                course_classes[course_code] = {'lectures': [], 'labs': []}
-            
-            if class_info['type'] == 'lab':
-                course_classes[course_code]['labs'].append(class_info)
-            else:
-                course_classes[course_code]['lectures'].append(class_info)
-        
-        # Schedule classes with consecutive preference
-        for course_code, classes in course_classes.items():
-            lectures = classes['lectures']
-            labs = classes['labs']
-            
-            # Schedule lectures first
-            for lecture in lectures:
-                placed = False
-                attempts = 0
-                while not placed and attempts < 50:
-                    day = random.choice(self.working_days)
-                    time_slot = random.choice(self.time_slots)
-                    
-                    if timetable[day][time_slot] is None:
-                        timetable[day][time_slot] = lecture
-                        placed = True
-                    attempts += 1
-            
-            # Schedule labs consecutively after lectures when possible
-            for lab in labs:
-                placed = False
-                attempts = 0
+        # Swap mutation - but avoid breaking consecutive lab sessions
+        if random.random() < 0.5:
+            attempts = 0
+            while attempts < 10:  # Try multiple times to find valid swap
+                day1, day2 = random.choices(self.working_days, k=2)
+                slot1, slot2 = random.choices(self.time_slots, k=2)
                 
-                # First try to place after a lecture of the same course
-                for day in self.working_days:
-                    for i, time_slot in enumerate(self.time_slots[:-1]):  # Leave room for next slot
-                        current_class = timetable[day][time_slot]
-                        next_slot = self.time_slots[i + 1]
-                        
-                        if (current_class and 
-                            current_class.get('course_code') == course_code and
-                            current_class.get('type') == 'lecture' and
-                            timetable[day][next_slot] is None):
-                            
-                            timetable[day][next_slot] = lab
-                            placed = True
-                            break
-                    if placed:
-                        break
+                class1 = mutated[day1][slot1]
+                class2 = mutated[day2][slot2]
                 
-                # If consecutive placement failed, place randomly
-                if not placed:
-                    while not placed and attempts < 50:
-                        day = random.choice(self.working_days)
-                        time_slot = random.choice(self.time_slots)
-                        
-                        if timetable[day][time_slot] is None:
-                            timetable[day][time_slot] = lab
-                            placed = True
-                        attempts += 1
+                # Don't break consecutive lab sessions
+                if ((not class1 or not class1.get('is_consecutive')) and 
+                    (not class2 or not class2.get('is_consecutive'))):
+                    mutated[day1][slot1], mutated[day2][slot2] = class2, class1
+                    break
+                
+                attempts += 1
         
-        return timetable
+        return mutated
     
     def optimize(self):
         """Run the genetic algorithm optimization"""
@@ -472,45 +492,13 @@ class GeneticTimetableOptimizer:
             'convergence_history': convergence_history
         }
     
-    def _tournament_selection(self, population, fitness_scores, tournament_size=5):
-        """Select individual using tournament selection"""
-        tournament_indices = random.sample(range(len(population)), min(tournament_size, len(population)))
-        best_index = max(tournament_indices, key=lambda i: fitness_scores[i])
-        return copy.deepcopy(population[best_index])
-    
-    def _crossover(self, parent1, parent2):
-        """Crossover two timetables"""
-        child = {}
-        
-        for day in self.working_days:
-            child[day] = {}
-            for time_slot in self.time_slots:
-                if random.random() < 0.5:
-                    child[day][time_slot] = copy.deepcopy(parent1[day][time_slot])
-                else:
-                    child[day][time_slot] = copy.deepcopy(parent2[day][time_slot])
-        
-        return child
-    
-    def _mutate(self, individual):
-        """Mutate an individual"""
-        mutated = copy.deepcopy(individual)
-        
-        # Random swap mutation
-        if random.random() < 0.5:
-            day1, day2 = random.choices(self.working_days, k=2)
-            slot1, slot2 = random.choices(self.time_slots, k=2)
-            
-            mutated[day1][slot1], mutated[day2][slot2] = mutated[day2][slot2], mutated[day1][slot1]
-        
-        return mutated
-    
     def _generate_summary(self, timetable):
         """Generate summary statistics"""
         total_classes = 0
         course_counts = {}
         teacher_workload = {}
         room_utilization = {}
+        consecutive_labs = 0
         
         for day, day_schedule in timetable.items():
             for time_slot, class_info in day_schedule.items():
@@ -520,12 +508,16 @@ class GeneticTimetableOptimizer:
                     teacher = class_info.get('teacher', '')
                     room = class_info.get('room', '')
                     
+                    if class_info.get('type') == 'lab' and class_info.get('is_consecutive'):
+                        consecutive_labs += 1
+                    
                     course_counts[course_code] = course_counts.get(course_code, 0) + 1
                     teacher_workload[teacher] = teacher_workload.get(teacher, 0) + 1
                     room_utilization[room] = room_utilization.get(room, 0) + 1
         
         return {
             'total_classes_scheduled': total_classes,
+            'consecutive_lab_sessions': consecutive_labs,
             'courses_completion': {course.code: {'scheduled': course_counts.get(course.code, 0), 
                                                'required': course.lectures_per_week,
                                                'completion_rate': (course_counts.get(course.code, 0) / course.lectures_per_week) * 100}

@@ -18,7 +18,7 @@ const InputForm = ({ onSubmit, loading, validationResults, initialData }) => {
     lunch_start: '12:30',
     lunch_end: '13:30',
     courses: [
-      { code: '', name: '', teacher: '', lectures_per_week: 3, type: 'lecture' }
+      { code: '', name: '', teacher: '', lectures_per_week: 3, type: 'lecture', lab_duration: 2 }
     ],
     resources: { classrooms: 10, labs: 5 },
     custom_constraints: ['']
@@ -51,7 +51,7 @@ const InputForm = ({ onSubmit, loading, validationResults, initialData }) => {
   const addCourse = () => {
     setFormData({
       ...formData,
-      courses: [...formData.courses, { code: '', name: '', teacher: '', lectures_per_week: 3, type: 'lecture' }]
+      courses: [...formData.courses, { code: '', name: '', teacher: '', lectures_per_week: 3, type: 'lecture', lab_duration: 2 }]
     });
   };
 
@@ -232,7 +232,7 @@ const InputForm = ({ onSubmit, loading, validationResults, initialData }) => {
                 )}
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
                 <div>
                   <Label>Course Code</Label>
                   <Input
@@ -278,6 +278,24 @@ const InputForm = ({ onSubmit, loading, validationResults, initialData }) => {
                     <option value="lab">Lab</option>
                   </select>
                 </div>
+                {course.type === 'lab' && (
+                  <div>
+                    <Label>Lab Duration (periods)</Label>
+                    <select 
+                      className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 transition-all duration-200"
+                      value={course.lab_duration || 2}
+                      onChange={(e) => updateCourse(index, 'lab_duration', parseInt(e.target.value))}
+                    >
+                      <option value="1">1 period</option>
+                      <option value="2">2 periods (90 min)</option>
+                      <option value="3">3 periods (135 min)</option>
+                      <option value="4">4 periods (180 min)</option>
+                    </select>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {course.lab_duration || 2} × {formData.lecture_duration} min = {(course.lab_duration || 2) * formData.lecture_duration} minutes
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -342,10 +360,12 @@ const InputForm = ({ onSubmit, loading, validationResults, initialData }) => {
             <p className="font-medium mb-2">Examples of custom constraints:</p>
             <ul className="list-disc list-inside space-y-1 text-xs">
               <li>Mr. Arun not available on Monday</li>
-              <li>Labs must be consecutive with lectures</li>
               <li>No classes after 4 PM on Friday</li>
               <li>Maximum 6 hours per day for any teacher</li>
             </ul>
+            <div className="mt-3 p-2 bg-blue-50 rounded text-xs">
+              <strong>Note:</strong> Lab sessions automatically take consecutive time slots based on lab duration setting above.
+            </div>
           </div>
           
           {formData.custom_constraints.map((constraint, index) => (
