@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
-import Dashboard from '../components/Dashboard';
+import Dashboard from '../components/ui/Dashboard';
 import { apiUtils } from '../lib/api';
 
 export default function Home() {
