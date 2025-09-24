@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
 from typing import List, Dict, Any
 import asyncio
 from datetime import datetime
+import pytz
 
 from app.models.timetable import TimetableRequest, TimetableResponse
 from app.services.genetic_algorithm import GeneticTimetableOptimizer, Course
@@ -58,7 +59,11 @@ async def generate_timetable(
         # Run optimization
         result = optimizer.optimize()
         
-        # Save to Firebase in background (create service when needed)
+        # Get IST timestamp
+        ist_timezone = pytz.timezone('Asia/Kolkata')
+        ist_time = datetime.now(ist_timezone)
+        
+        # Save to Firebase in background
         firebase_service = get_firebase_service()
         background_tasks.add_task(
             firebase_service.save_timetable,
@@ -66,7 +71,7 @@ async def generate_timetable(
             result
         )
         
-        # Also save user inputs for future reference
+        # Also save user inputs
         background_tasks.add_task(
             firebase_service.save_user_inputs,
             request.institution_id,
@@ -79,7 +84,7 @@ async def generate_timetable(
             summary=result['summary'],
             generation_count=result['generation'],
             institution_id=request.institution_id,
-            timestamp=datetime.now()
+            timestamp=ist_time  # Use IST time
         )
         
     except Exception as e:

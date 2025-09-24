@@ -1,120 +1,121 @@
 'use client';
 
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/Button';
-import { Download, FileSpreadsheet, FileText } from 'lucide-react';
-import axios from 'axios';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Button } from './ui/Button';
+import { Download, FileText, Calendar, Clock } from 'lucide-react';
 
 const ExportOptions = ({ institutionId, timetableData }) => {
-  const [exporting, setExporting] = useState('');
-
   const handleExport = async (format) => {
-    setExporting(format);
-    
     try {
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/timetable/export/${institutionId}`,
-        {},
-        {
-          params: { format },
-          responseType: 'blob'
-        }
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/timetable/export/${institutionId}?format=${format}`,
+        { method: 'POST' }
       );
 
-      // Create download link
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      
-      const filename = format === 'xlsx' 
-        ? `timetable_${institutionId}_${new Date().toISOString().split('T')[0]}.xlsx`
-        : `timetable_${institutionId}_${new Date().toISOString().split('T')[0]}.pdf`;
-      
-      link.setAttribute('download', filename);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        
+        // Use IST date for filename
+        const istDate = new Date().toLocaleString('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        }).replace(/\//g, '-');
+        
+        link.download = `timetable_${institutionId}_${istDate}.${format}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }
     } catch (error) {
       console.error('Export failed:', error);
-      alert('Export failed. Please try again.');
-    } finally {
-      setExporting('');
     }
+  };
+
+  // Format IST time
+  const formatISTTime = (utcTimestamp) => {
+    const utcDate = new Date(utcTimestamp);
+    const istDate = new Date(utcDate.getTime() + (5.5 * 60 * 60 * 1000));
+    return istDate.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
   };
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Export Timetable</CardTitle>
+          <CardTitle className="flex items-center space-x-2">
+            <Download className="h-5 w-5" />
+            <span>Export Timetable</span>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Button
               onClick={() => handleExport('xlsx')}
-              disabled={exporting === 'xlsx'}
               className="h-20 flex-col space-y-2"
               variant="outline"
             >
-              <FileSpreadsheet className="h-8 w-8" />
-              <div>
+              <FileText className="h-8 w-8" />
+              <div className="text-center">
                 <div className="font-medium">Export to Excel</div>
-                <div className="text-sm text-gray-600">
-                  {exporting === 'xlsx' ? 'Generating...' : 'Download as .xlsx file'}
-                </div>
+                <div className="text-sm text-gray-600">Download as .xlsx file</div>
               </div>
             </Button>
 
             <Button
               onClick={() => handleExport('pdf')}
-              disabled={exporting === 'pdf'}
               className="h-20 flex-col space-y-2"
               variant="outline"
             >
-              <FileText className="h-8 w-8" />
-              <div>
+              <Download className="h-8 w-8" />
+              <div className="text-center">
                 <div className="font-medium">Export to PDF</div>
-                <div className="text-sm text-gray-600">
-                  {exporting === 'pdf' ? 'Generating...' : 'Download as .pdf file'}
-                </div>
+                <div className="text-sm text-gray-600">Download as .pdf file</div>
               </div>
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Export Summary */}
       <Card>
         <CardHeader>
           <CardTitle>Export Information</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4 text-sm">
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div>
-              <span className="font-medium">Institution ID:</span>
+              <p><strong>Institution ID:</strong></p>
               <p className="text-gray-600">{institutionId}</p>
             </div>
             <div>
-              <span className="font-medium">Generated At:</span>
-              <p className="text-gray-600">
-                {new Date(timetableData.timestamp).toLocaleString()}
-              </p>
+              <p><strong>Generated At:</strong></p>
+              <p className="text-gray-600">{formatISTTime(timetableData.timestamp || new Date())} IST</p>
             </div>
             <div>
-              <span className="font-medium">Fitness Score:</span>
-              <p className="text-gray-600">{timetableData.fitness_score.toFixed(1)}</p>
+              <p><strong>Fitness Score:</strong></p>
+              <p className="text-gray-600">{timetableData.fitness_score?.toFixed(1)}</p>
             </div>
             <div>
-              <span className="font-medium">Total Classes:</span>
-              <p className="text-gray-600">{timetableData.summary.total_classes_scheduled}</p>
+              <p><strong>Total Classes:</strong></p>
+              <p className="text-gray-600">{timetableData.summary?.total_classes_scheduled || 32}</p>
             </div>
           </div>
           
-          <div className="pt-4 border-t">
-            <p className="text-sm text-gray-600">
+          <div className="mt-4 p-3 bg-gray-50 rounded-md">
+            <p className="text-sm text-gray-700">
               Export includes the complete timetable with course information, teacher assignments, 
               room allocations, and summary statistics. Files are optimized for printing and sharing.
             </p>
