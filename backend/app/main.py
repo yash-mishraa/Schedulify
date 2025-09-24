@@ -39,13 +39,15 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000", 
+        "http://localhost:3000",
         "https://*.vercel.app",
-        "https://*.onrender.com",
-        "https://schedulify-frontend.vercel.app"
+        "https://schedulify-frontend.vercel.app",
+        "https://schedulify-kl5qrg7yd-yashmishra1408-gmailcoms-projects.vercel.app",  # Your actual Vercel URL
+        "https://*.yashmishra1408-gmailcoms-projects.vercel.app",  # Pattern for your Vercel URLs
+        "*"  # Temporarily allow all origins for testing
     ],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
