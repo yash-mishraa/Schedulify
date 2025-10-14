@@ -41,19 +41,20 @@ const Dashboard = () => {
         }
       }
       
-      // Verify institution exists in backend
+      // Create institution data object with the stored name
+      setInstitutionData({
+        id: storedId,
+        name: storedName,
+        total_timetables_generated: 0
+      });
+      
+      // Verify institution exists in backend (optional - don't fail if offline)
       try {
         const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/institutions/${storedId}`);
         setInstitutionData(response.data);
       } catch (error) {
-        console.error('Institution not found in backend:', error);
-        // Clear invalid data
-        localStorage.removeItem('institutionId');
-        localStorage.removeItem('institutionName');
-        localStorage.removeItem('lastFormData');
-        setInstitutionId('');
-        setInstitutionName('');
-        setStoredInputs(null);
+        console.log('Could not verify institution in backend (possibly offline):', error);
+        // Don't clear data, keep using stored values
       }
     }
   };
@@ -108,7 +109,6 @@ const Dashboard = () => {
   const selectExistingInstitution = async (instId, instName) => {
     try {
       setLoading(true);
-      const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/institutions/${instId}`);
       
       // Load stored form data for this institution
       const storedFormData = localStorage.getItem(`formData_${instId}`);
@@ -128,12 +128,28 @@ const Dashboard = () => {
         localStorage.setItem('lastFormData', JSON.stringify(institutionInputs));
       }
       
+      // Set institution data immediately with stored values
+      const institutionDataObj = {
+        id: instId,
+        name: instName,
+        total_timetables_generated: 0
+      };
+      
       setInstitutionId(instId);
       setInstitutionName(instName);
-      setInstitutionData(response.data);
+      setInstitutionData(institutionDataObj);
       setStoredInputs(institutionInputs);
-      setShowGenerator(true);
       
+      // Try to get updated data from backend (optional)
+      try {
+        const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/institutions/${instId}`);
+        setInstitutionData(response.data);
+      } catch (error) {
+        console.log('Could not fetch updated institution data (possibly offline):', error);
+        // Keep using the stored data
+      }
+      
+      setShowGenerator(true);
       toast.success(`Loaded ${instName}`);
     } catch (error) {
       console.error('Failed to load institution:', error);
@@ -143,8 +159,8 @@ const Dashboard = () => {
     }
   };
 
-  const deleteInstitution = async (instId, instName, event) => {
-    event.stopPropagation(); // Prevent triggering selectExistingInstitution
+  const deleteInstitution = async (instId, instName) => {
+    console.log('Delete institution called for:', instId, instName); // Debug log
     
     if (!confirm(`Are you sure you want to delete "${instName}" and all its timetables?`)) {
       return;
@@ -152,7 +168,15 @@ const Dashboard = () => {
 
     try {
       setLoading(true);
-      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/institutions/${instId}`);
+      
+      // Try to delete from backend
+      try {
+        await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/institutions/${instId}`);
+        console.log('Institution deleted from backend');
+      } catch (error) {
+        console.log('Could not delete from backend (possibly offline):', error);
+        // Continue with local deletion
+      }
       
       // Remove from recent institutions
       const recent = JSON.parse(localStorage.getItem('recentInstitutions') || '[]');
@@ -357,21 +381,17 @@ const Dashboard = () => {
                 {existingInstitutions.map((institution) => (
                   <div 
                     key={institution.id} 
-                    className="bg-white/10 rounded-lg p-4 flex items-center justify-between hover:bg-white/15 transition-all duration-200 cursor-pointer"
-                    onClick={() => selectExistingInstitution(institution.id, institution.name)}
+                    className="bg-white/10 rounded-lg p-4 flex items-center justify-between hover:bg-white/15 transition-all duration-200"
                   >
-                    <div>
+                    <div className="flex-1 cursor-pointer" onClick={() => selectExistingInstitution(institution.id, institution.name)}>
                       <h3 className="text-white font-medium">{institution.name}</h3>
                       <p className="text-white/60 text-xs">
                         Created: {new Date(institution.created_at).toLocaleDateString()}
                       </p>
                     </div>
-                    <div className="flex space-x-2">
+                    <div className="flex space-x-2 ml-4">
                       <Button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          selectExistingInstitution(institution.id, institution.name);
-                        }}
+                        onClick={() => selectExistingInstitution(institution.id, institution.name)}
                         variant="secondary"
                         size="sm"
                         disabled={loading}
@@ -379,8 +399,12 @@ const Dashboard = () => {
                         Load
                       </Button>
                       <Button
-                        onClick={(e) => deleteInstitution(institution.id, institution.name, e)}
-                        variant="outline"  
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          deleteInstitution(institution.id, institution.name);
+                        }}
+                        variant="outline"
                         size="sm"
                         disabled={loading}
                         className="hover:bg-red-500/20 hover:border-red-400"
@@ -414,7 +438,7 @@ const Dashboard = () => {
                     </h3>
                     <p className="text-green-200">{institutionData.name}</p>
                     <p className="text-green-200/80 text-sm">
-                      Timetables Generated: {institutionData.total_timetables_generated}
+                      Timetables Generated: {institutionData.total_timetables_generated || 0}
                       {storedInputs && <span className="ml-3">• Previous inputs saved</span>}
                     </p>
                   </div>
