@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import { Alert, AlertDescription } from './ui/alert';
-import { Loader2, RefreshCw, AlertCircle, CheckCircle, XCircle, Edit3 } from 'lucide-react';
+import { Loader2, RefreshCw, AlertCircle, CheckCircle, XCircle, Edit3, Settings, FileText, Download } from 'lucide-react';
 import { Button } from './ui/Button';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -193,13 +192,34 @@ const TimetableGenerator = ({ institutionId, institutionData }) => {
   const getStatusColor = () => {
     switch (apiStatus) {
       case 'connected':
-        return 'bg-green-500/20 border-green-400/40 text-green-100';
+        return 'status-connected';
       case 'disconnected':
-        return 'bg-red-500/20 border-red-400/40 text-red-100';
+        return 'status-disconnected';
       default:
-        return 'bg-yellow-500/20 border-yellow-400/40 text-yellow-100';
+        return 'status-checking';
     }
   };
+
+  const tabs = [
+    {
+      id: 'input',
+      label: 'Input Configuration',
+      icon: Settings,
+      disabled: false
+    },
+    {
+      id: 'timetable',
+      label: 'Generated Timetable',
+      icon: FileText,
+      disabled: !timetableData
+    },
+    {
+      id: 'export',
+      label: 'Export Options',
+      icon: Download,
+      disabled: !timetableData
+    }
+  ];
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -208,40 +228,41 @@ const TimetableGenerator = ({ institutionId, institutionData }) => {
         <p className="text-xl text-white/80">AI-Powered Automatic Timetable Generator</p>
       </div>
 
-      {/* Connection Status - Moved to separate line without glass */}
-      <div className="flex items-center justify-between bg-slate-800/40 backdrop-blur-sm border border-white/20 rounded-lg p-4">
-        <div className="flex items-center space-x-3">
-          {getStatusIcon()}
-          <span className={`px-3 py-1 rounded-lg text-sm font-medium border backdrop-blur-sm ${getStatusColor()}`}>
-            {getStatusText()}
-          </span>
-        </div>
-        <div className="flex space-x-2">
-          <Button
-            onClick={checkApiConnection}
-            variant="outline"
-            size="sm"
-            disabled={apiStatus === 'checking'}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${apiStatus === 'checking' ? 'animate-spin' : ''}`} />
-            Check Connection
-          </Button>
-          {apiStatus === 'disconnected' && (
+      {/* Clean Connection Status */}
+      <div className="connection-status-bar">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            {getStatusIcon()}
+            <span className={`px-3 py-1 rounded-lg text-sm font-medium border backdrop-blur-sm ${getStatusColor()}`}>
+              {getStatusText()}
+            </span>
+          </div>
+          <div className="flex space-x-2">
             <Button
-              onClick={() => {
-                window.open(`${process.env.NEXT_PUBLIC_API_URL}/health`, '_blank');
-                setTimeout(() => checkApiConnection(), 5000);
-              }}
-              variant="default"
+              onClick={checkApiConnection}
+              variant="outline"
               size="sm"
+              disabled={apiStatus === 'checking'}
             >
-              Wake Up Backend
+              <RefreshCw className={`h-4 w-4 mr-2 ${apiStatus === 'checking' ? 'animate-spin' : ''}`} />
+              Check Connection
             </Button>
-          )}
+            {apiStatus === 'disconnected' && (
+              <button
+                onClick={() => {
+                  window.open(`${process.env.NEXT_PUBLIC_API_URL}/health`, '_blank');
+                  setTimeout(() => checkApiConnection(), 5000);
+                }}
+                className="glass-button"
+              >
+                Wake Up Backend
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Error Display - Improved Readability */}
+      {/* Error Display */}
       {error && (
         <div className="bg-red-500/20 border border-red-400/50 rounded-lg p-4 backdrop-blur-sm">
           <div className="flex items-start space-x-3">
@@ -254,11 +275,11 @@ const TimetableGenerator = ({ institutionId, institutionData }) => {
         </div>
       )}
 
-      {/* Validation Results - Improved Readability */}
+      {/* Validation Results */}
       {validationResults && (
         <div className="space-y-4">
           {validationResults.errors?.length > 0 && (
-            <div className="bg-red-500/20 border border-red-400/50 rounded-lg p-4 backdrop-blur-sm">
+            <div className="validation-error">
               <h4 className="text-red-200 font-semibold mb-3 flex items-center">
                 <XCircle className="h-4 w-4 mr-2" />
                 Validation Errors:
@@ -292,7 +313,7 @@ const TimetableGenerator = ({ institutionId, institutionData }) => {
           )}
           
           {validationResults.is_valid && (
-            <div className="bg-green-500/20 border border-green-400/50 rounded-lg p-4 backdrop-blur-sm">
+            <div className="validation-success">
               <div className="text-green-100 flex items-center">
                 <CheckCircle className="h-4 w-4 mr-2 text-green-300" />
                 All validations passed! Ready to generate timetable.
@@ -302,35 +323,43 @@ const TimetableGenerator = ({ institutionId, institutionData }) => {
         </div>
       )}
 
-      {/* Main Tabs - Improved Styling */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="bg-slate-800/60 backdrop-blur-sm rounded-xl p-1 border border-white/20 grid w-full grid-cols-3">
-          <TabsTrigger 
-            value="input" 
-            className="text-white/80 data-[state=active]:bg-white/20 data-[state=active]:text-white rounded-lg font-medium"
-          >
-            <div className="flex items-center space-x-2">
-              <span>Input Configuration</span>
-              {timetableData && <Edit3 className="h-4 w-4" />}
-            </div>
-          </TabsTrigger>
-          <TabsTrigger 
-            value="timetable" 
-            disabled={!timetableData}
-            className="text-white/80 data-[state=active]:bg-white/20 data-[state=active]:text-white rounded-lg font-medium disabled:opacity-50"
-          >
-            Generated Timetable
-          </TabsTrigger>
-          <TabsTrigger 
-            value="export" 
-            disabled={!timetableData}
-            className="text-white/80 data-[state=active]:bg-white/20 data-[state=active]:text-white rounded-lg font-medium disabled:opacity-50"
-          >
-            Export Options
-          </TabsTrigger>
-        </TabsList>
+      {/* Professional Main Tabs */}
+      <div className="professional-tabs">
+        <div className="grid grid-cols-3 gap-1.5">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            const isDisabled = tab.disabled;
+            
+            return (
+              <button
+                key={tab.id}
+                onClick={() => !isDisabled && setActiveTab(tab.id)}
+                className={`
+                  professional-tab
+                  ${isActive ? 'professional-tab-active' : ''}
+                  ${isDisabled ? 'professional-tab-disabled' : ''}
+                `}
+                disabled={isDisabled}
+              >
+                <div className="flex items-center justify-center space-x-2">
+                  <Icon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-white/70'}`} />
+                  <span className="font-semibold text-sm">
+                    {tab.label}
+                    {tab.id === 'input' && timetableData && (
+                      <Edit3 className="h-3 w-3 ml-1 inline" />
+                    )}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-        <TabsContent value="input" className="space-y-6 mt-6">
+      {/* Tab Content */}
+      <div className="mt-8">
+        {activeTab === 'input' && (
           <InputForm 
             onSubmit={handleGenerateTimetable}
             loading={loading}
@@ -338,31 +367,27 @@ const TimetableGenerator = ({ institutionId, institutionData }) => {
             apiStatus={apiStatus}
             initialData={savedFormData}
           />
-        </TabsContent>
+        )}
 
-        <TabsContent value="timetable" className="space-y-6 mt-6">
-          {timetableData && (
-            <TimetableDisplay 
-              data={timetableData}
-              institutionId={institutionId}
-              onEdit={handleEditTimetable}
-            />
-          )}
-        </TabsContent>
+        {activeTab === 'timetable' && timetableData && (
+          <TimetableDisplay 
+            data={timetableData}
+            institutionId={institutionId}
+            onEdit={handleEditTimetable}
+          />
+        )}
 
-        <TabsContent value="export" className="space-y-6 mt-6">
-          {timetableData && (
-            <ExportOptions 
-              institutionId={institutionId}
-              timetableData={timetableData}
-            />
-          )}
-        </TabsContent>
-      </Tabs>
+        {activeTab === 'export' && timetableData && (
+          <ExportOptions 
+            institutionId={institutionId}
+            timetableData={timetableData}
+          />
+        )}
+      </div>
 
-      {/* Loading Modal - Improved */}
+      {/* Loading Modal */}
       {loading && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="loading-overlay">
           <div className="glass-card p-8 max-w-md mx-4">
             <div className="text-center space-y-4">
               <Loader2 className="h-12 w-12 animate-spin mx-auto text-purple-400" />
