@@ -18,6 +18,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(false);
   const [existingInstitutions, setExistingInstitutions] = useState([]);
   const [storedInputs, setStoredInputs] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0); // Force re-render key
 
   useEffect(() => {
     loadStoredInstitution();
@@ -28,8 +29,6 @@ const Dashboard = () => {
     const storedId = localStorage.getItem('institutionId');
     const storedName = localStorage.getItem('institutionName');
     const storedFormData = localStorage.getItem('lastFormData');
-    
-    console.log('Loading stored institution:', { storedId, storedName }); // Debug
     
     if (storedId && storedName) {
       setInstitutionId(storedId);
@@ -50,14 +49,11 @@ const Dashboard = () => {
           console.error('Error parsing stored form data:', e);
         }
       }
-      
-      console.log('Institution data set:', instData); // Debug
     }
   };
 
   const loadRecentInstitutions = () => {
     const recent = JSON.parse(localStorage.getItem('recentInstitutions') || '[]');
-    console.log('Loaded recent institutions:', recent); // Debug
     setExistingInstitutions(recent.slice(0, 5));
   };
 
@@ -80,7 +76,7 @@ const Dashboard = () => {
         });
         newInstitution = response.data;
       } catch (error) {
-        console.log('Backend unavailable, using fallback:', error);
+        console.log('Backend unavailable, using fallback');
         newInstitution = {
           id: fallbackId,
           name: institutionName,
@@ -105,6 +101,7 @@ const Dashboard = () => {
       setInstitutionData(newInstitution);
       setExistingInstitutions(updatedRecent.slice(0, 5));
       setStoredInputs(null);
+      setInstitutionName(''); // Clear the input field
       
       toast.success('Institution created successfully!');
       setShowGenerator(true);
@@ -117,8 +114,6 @@ const Dashboard = () => {
   };
 
   const selectExistingInstitution = (instId, instName) => {
-    console.log('Selecting institution:', { instId, instName }); // Debug
-    
     setLoading(true);
     
     // Load stored form data for this institution
@@ -147,20 +142,16 @@ const Dashboard = () => {
     };
     
     setInstitutionId(instId);
-    setInstitutionName(instName);
+    setInstitutionName('');
     setInstitutionData(institutionDataObj);
     setStoredInputs(institutionInputs);
     setShowGenerator(true);
-    
-    console.log('Institution data set to:', institutionDataObj); // Debug
     
     toast.success(`Loaded ${instName}`);
     setLoading(false);
   };
 
   const handleDeleteClick = (instId, instName) => {
-    console.log('Delete button clicked for:', instId, instName); // Debug
-    
     if (!confirm(`Are you sure you want to delete "${instName}"?`)) {
       return;
     }
@@ -170,7 +161,10 @@ const Dashboard = () => {
       const recent = JSON.parse(localStorage.getItem('recentInstitutions') || '[]');
       const updatedRecent = recent.filter(inst => inst.id !== instId);
       localStorage.setItem('recentInstitutions', JSON.stringify(updatedRecent));
+      
+      // Update state and force re-render
       setExistingInstitutions(updatedRecent.slice(0, 5));
+      setRefreshKey(prev => prev + 1); // Force re-render
       
       // Remove stored form data for this institution
       localStorage.removeItem(`formData_${instId}`);
@@ -305,7 +299,7 @@ const Dashboard = () => {
           </div>
 
           {/* Recent Institutions */}
-          <div className="glass-card p-8">
+          <div className="glass-card p-8" key={refreshKey}>
             <div className="text-center mb-6">
               <h2 className="text-2xl font-bold text-white mb-2 flex items-center justify-center">
                 <History className="h-6 w-6 mr-2" />
@@ -318,7 +312,7 @@ const Dashboard = () => {
               <div className="space-y-3">
                 {existingInstitutions.map((institution) => (
                   <div 
-                    key={institution.id} 
+                    key={`${institution.id}-${refreshKey}`}
                     className="bg-white/10 rounded-lg p-4 flex items-center justify-between hover:bg-white/15 transition-all duration-200"
                   >
                     <div className="flex-1">
@@ -386,15 +380,6 @@ const Dashboard = () => {
             </Card>
           </div>
         )}
-
-        {/* Debug Info - Remove after testing */}
-        <div className="mt-8 bg-gray-800 p-4 rounded text-white text-xs">
-          <h4>Debug Info:</h4>
-          <p>Institution ID: {institutionId}</p>
-          <p>Institution Name: {institutionName}</p>
-          <p>Institution Data: {JSON.stringify(institutionData)}</p>
-          <p>Recent Institutions: {existingInstitutions.length}</p>
-        </div>
       </div>
     </div>
   );

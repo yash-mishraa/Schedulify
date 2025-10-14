@@ -284,53 +284,45 @@ const handleGenerateTimetable = async (formData) => {
         </div>
       )}
 
-      {/* Validation Results */}
-      {validationResults && (
-        <div className="space-y-4">
-          {validationResults.errors?.length > 0 && (
-            <div className="validation-error">
-              <h4 className="text-red-200 font-semibold mb-3 flex items-center">
-                <XCircle className="h-4 w-4 mr-2" />
-                Validation Errors:
-              </h4>
-              <ul className="space-y-2">
-                {validationResults.errors.map((error, index) => (
-                  <li key={index} className="text-red-100 text-sm flex items-start">
-                    <span className="w-2 h-2 bg-red-400 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                    {error}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          
-          {validationResults.warnings?.length > 0 && (
-            <div className="bg-yellow-500/20 border border-yellow-400/50 rounded-lg p-4 backdrop-blur-sm">
-              <h4 className="text-yellow-200 font-semibold mb-3 flex items-center">
-                <AlertCircle className="h-4 w-4 mr-2" />
-                Warnings:
-              </h4>
-              <ul className="space-y-2">
-                {validationResults.warnings.map((warning, index) => (
-                  <li key={index} className="text-yellow-100 text-sm flex items-start">
-                    <span className="w-2 h-2 bg-yellow-400 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                    {warning}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          
-          {validationResults.is_valid && (
-            <div className="validation-success">
-              <div className="text-green-100 flex items-center">
-                <CheckCircle className="h-4 w-4 mr-2 text-green-300" />
-                All validations passed! Ready to generate timetable.
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+{/* Validation Results - Only show errors and warnings */}
+{validationResults && (
+  <div className="space-y-4">
+    {validationResults.errors?.length > 0 && (
+      <div className="bg-red-500/20 border border-red-400/50 rounded-lg p-4 backdrop-blur-sm">
+        <h4 className="text-red-200 font-semibold mb-3 flex items-center">
+          <XCircle className="h-4 w-4 mr-2" />
+          Validation Errors:
+        </h4>
+        <ul className="space-y-2">
+          {validationResults.errors.map((error, index) => (
+            <li key={index} className="text-red-100 text-sm flex items-start">
+              <span className="w-2 h-2 bg-red-400 rounded-full mt-2 mr-3 flex-shrink-0"></span>
+              {error}
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
+    
+    {validationResults.warnings?.length > 0 && (
+      <div className="bg-yellow-500/20 border border-yellow-400/50 rounded-lg p-4 backdrop-blur-sm">
+        <h4 className="text-yellow-200 font-semibold mb-3 flex items-center">
+          <AlertCircle className="h-4 w-4 mr-2" />
+          Warnings:
+        </h4>
+        <ul className="space-y-2">
+          {validationResults.warnings.map((warning, index) => (
+            <li key={index} className="text-yellow-100 text-sm flex items-start">
+              <span className="w-2 h-2 bg-yellow-400 rounded-full mt-2 mr-3 flex-shrink-0"></span>
+              {warning}
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
+  </div>
+)}
+
 
       {/* Professional Main Tabs */}
       <div className="professional-tabs">
