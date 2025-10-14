@@ -5,7 +5,19 @@ import { Card, CardContent } from './ui/card';
 import { Button } from './ui/Button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Calendar, Clock, Users, Building2, TrendingUp, Sparkles, Zap, Shield, Plus, Trash2, History, ArrowLeft, Edit3 } from 'lucide-react';
+import {
+  Calendar,
+  Clock,
+  Building2,
+  Sparkles,
+  Zap,
+  Shield,
+  Plus,
+  Trash2,
+  History,
+  ArrowLeft,
+  Edit3,
+} from 'lucide-react';
 import TimetableGenerator from './TimetableGenerator';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -28,18 +40,18 @@ const Dashboard = () => {
     const storedId = localStorage.getItem('institutionId');
     const storedName = localStorage.getItem('institutionName');
     const storedFormData = localStorage.getItem('lastFormData');
-    
+
     if (storedId && storedName) {
       setInstitutionId(storedId);
       setInstitutionName(storedName);
-      
+
       const instData = {
         id: storedId,
         name: storedName,
-        total_timetables_generated: 0
+        total_timetables_generated: 0,
       };
       setInstitutionData(instData);
-      
+
       if (storedFormData) {
         try {
           setStoredInputs(JSON.parse(storedFormData));
@@ -63,14 +75,19 @@ const Dashboard = () => {
 
     setLoading(true);
     try {
-      const fallbackId = `inst_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const fallbackId = `inst_${Date.now()}_${Math.random()
+        .toString(36)
+        .substr(2, 9)}`;
       let newInstitution;
-      
+
       try {
-        const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/institutions/`, {
-          name: institutionName,
-          settings: {}
-        });
+        const response = await axios.post(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/v1/institutions/`,
+          {
+            name: institutionName,
+            settings: {},
+          }
+        );
         newInstitution = response.data;
       } catch (error) {
         console.log('Backend unavailable, using fallback');
@@ -78,26 +95,26 @@ const Dashboard = () => {
           id: fallbackId,
           name: institutionName,
           created_at: new Date().toISOString(),
-          total_timetables_generated: 0
+          total_timetables_generated: 0,
         };
       }
-      
+
       localStorage.setItem('institutionId', newInstitution.id);
       localStorage.setItem('institutionName', newInstitution.name);
-      
+
       const recent = JSON.parse(localStorage.getItem('recentInstitutions') || '[]');
       const updatedRecent = [
         { id: newInstitution.id, name: newInstitution.name, created_at: newInstitution.created_at },
-        ...recent.filter(inst => inst.id !== newInstitution.id)
+        ...recent.filter((inst) => inst.id !== newInstitution.id),
       ].slice(0, 10);
       localStorage.setItem('recentInstitutions', JSON.stringify(updatedRecent));
-      
+
       setInstitutionId(newInstitution.id);
       setInstitutionData(newInstitution);
       setExistingInstitutions(updatedRecent.slice(0, 5));
       setStoredInputs(null);
       setInstitutionName('');
-      
+
       toast.success('Institution created successfully!');
       setShowGenerator(true);
     } catch (error) {
@@ -110,7 +127,7 @@ const Dashboard = () => {
 
   const selectExistingInstitution = (instId, instName) => {
     setLoading(true);
-    
+
     const storedFormData = localStorage.getItem(`formData_${instId}`);
     let institutionInputs = null;
     if (storedFormData) {
@@ -120,27 +137,56 @@ const Dashboard = () => {
         console.error('Error parsing stored form data:', e);
       }
     }
-    
+
     localStorage.setItem('institutionId', instId);
     localStorage.setItem('institutionName', instName);
     if (institutionInputs) {
       localStorage.setItem('lastFormData', JSON.stringify(institutionInputs));
     }
-    
+
     const institutionDataObj = {
       id: instId,
       name: instName,
-      total_timetables_generated: 0
+      total_timetables_generated: 0,
     };
-    
+
     setInstitutionId(instId);
     setInstitutionName('');
     setInstitutionData(institutionDataObj);
     setStoredInputs(institutionInputs);
     setShowGenerator(true);
-    
+
     toast.success(`Loaded ${instName}`);
     setLoading(false);
+  };
+
+  const deleteInstitution = (institution) => {
+    if (!confirm(`Are you sure you want to delete "${institution.name}"?`)) return;
+
+    try {
+      const recent = JSON.parse(localStorage.getItem('recentInstitutions') || '[]');
+      const updated = recent.filter((inst) => inst.id !== institution.id);
+
+      localStorage.setItem('recentInstitutions', JSON.stringify(updated));
+      localStorage.removeItem(`formData_${institution.id}`);
+
+      if (institutionId === institution.id) {
+        localStorage.removeItem('institutionId');
+        localStorage.removeItem('institutionName');
+        localStorage.removeItem('lastFormData');
+        setInstitutionId('');
+        setInstitutionName('');
+        setInstitutionData(null);
+        setStoredInputs(null);
+        setShowGenerator(false);
+      }
+
+      setExistingInstitutions(updated.slice(0, 5)); // Update list immediately
+      toast.success(`${institution.name} deleted successfully`);
+    } catch (err) {
+      console.error('Error deleting institution:', err);
+      toast.error('Failed to delete institution');
+    }
   };
 
   const goBackToSelection = () => {
@@ -151,18 +197,14 @@ const Dashboard = () => {
     return (
       <div>
         <div className="container mx-auto px-6 pt-6">
-          <Button
-            onClick={goBackToSelection}
-            variant="outline"
-            className="mb-4"
-          >
+          <Button onClick={goBackToSelection} variant="outline" className="mb-4">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Institution Selection
           </Button>
         </div>
-        
-        <TimetableGenerator 
-          institutionId={institutionId} 
+
+        <TimetableGenerator
+          institutionId={institutionId}
           institutionData={institutionData}
           initialInputs={storedInputs}
         />
@@ -182,12 +224,9 @@ const Dashboard = () => {
                 <Calendar className="h-12 w-12 text-purple-400" />
               </div>
             </div>
-            <h1 className="text-6xl font-bold gradient-text mb-4">
-              Schedulify
-            </h1>
+            <h1 className="text-6xl font-bold gradient-text mb-4">Schedulify</h1>
             <p className="text-xl text-white/80 max-w-2xl mx-auto mb-8">
-              AI-Powered Automatic Timetable Generator with advanced algorithms 
-              for creating clash-free, optimized schedules
+              AI-Powered Automatic Timetable Generator with advanced algorithms for creating clash-free, optimized schedules
             </p>
             <div className="flex items-center justify-center space-x-4">
               <div className="glass-badge">
@@ -207,8 +246,8 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* Main Content */}
       <div className="container mx-auto px-6 py-12">
-        {/* Institution Management */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Create New Institution */}
           <div className="glass-card p-8">
@@ -219,7 +258,7 @@ const Dashboard = () => {
               </h2>
               <p className="text-white/70">Set up a new institution for timetable generation</p>
             </div>
-            
+
             <div className="space-y-6">
               <div>
                 <Label className="text-label mb-2 block">Institution Name</Label>
@@ -232,20 +271,18 @@ const Dashboard = () => {
                 />
               </div>
 
-              <Button 
+              <Button
                 onClick={createNewInstitution}
                 className="btn-primary w-full btn-large"
                 disabled={!institutionName.trim() || loading}
               >
                 {loading ? (
                   <>
-                    <Clock className="h-4 w-4 mr-2 animate-spin" />
-                    Creating...
+                    <Clock className="h-4 w-4 mr-2 animate-spin" /> Creating...
                   </>
                 ) : (
                   <>
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    Create Institution
+                    <Sparkles className="h-4 w-4 mr-2" /> Create Institution
                   </>
                 )}
               </Button>
@@ -256,8 +293,7 @@ const Dashboard = () => {
           <div className="glass-card p-8">
             <div className="text-center mb-6">
               <h2 className="text-2xl font-bold text-white mb-2 flex items-center justify-center">
-                <History className="h-6 w-6 mr-2" />
-                Recent Institutions
+                <History className="h-6 w-6 mr-2" /> Recent Institutions
               </h2>
               <p className="text-white/70">Continue with previously created institutions</p>
             </div>
@@ -265,7 +301,7 @@ const Dashboard = () => {
             {existingInstitutions.length > 0 ? (
               <div className="space-y-3">
                 {existingInstitutions.map((institution) => (
-                  <div 
+                  <div
                     key={institution.id}
                     className="bg-white/10 rounded-lg p-4 flex items-center justify-between hover:bg-white/15 transition-all duration-200"
                   >
@@ -285,38 +321,7 @@ const Dashboard = () => {
                         Load
                       </Button>
                       <button
-                        onClick={() => {
-                          console.log('Delete clicked for:', institution.name); // Debug
-                          if (confirm(`Are you sure you want to delete "${institution.name}"?`)) {
-                            console.log('User confirmed delete'); // Debug
-                            
-                            // Remove from localStorage
-                            const recent = JSON.parse(localStorage.getItem('recentInstitutions') || '[]');
-                            const updated = recent.filter(inst => inst.id !== institution.id);
-                            localStorage.setItem('recentInstitutions', JSON.stringify(updated));
-                            
-                            // Update state
-                            setExistingInstitutions(updated.slice(0, 5));
-                            
-                            // Clean up related data
-                            localStorage.removeItem(`formData_${institution.id}`);
-                            
-                            // If current institution, clear it
-                            if (institutionId === institution.id) {
-                              localStorage.removeItem('institutionId');
-                              localStorage.removeItem('institutionName');
-                              localStorage.removeItem('lastFormData');
-                              setInstitutionId('');
-                              setInstitutionName('');
-                              setInstitutionData(null);
-                              setStoredInputs(null);
-                              setShowGenerator(false);
-                            }
-                            
-                            toast.success(`${institution.name} deleted successfully`);
-                            console.log('Delete completed'); // Debug
-                          }
-                        }}
+                        onClick={() => deleteInstitution(institution)}
                         className="bg-transparent hover:bg-red-500/20 text-white/90 hover:text-white font-medium px-3 py-1.5 text-sm rounded-md border border-white/30 hover:border-red-400 transition-all duration-200"
                         disabled={loading}
                       >
@@ -352,10 +357,7 @@ const Dashboard = () => {
                       {storedInputs && <span className="ml-3">• Previous inputs saved</span>}
                     </p>
                   </div>
-                  <Button
-                    onClick={() => setShowGenerator(true)}
-                    className="btn-primary"
-                  >
+                  <Button onClick={() => setShowGenerator(true)} className="btn-primary">
                     Continue to Timetable Generator
                   </Button>
                 </div>
