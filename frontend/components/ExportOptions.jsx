@@ -10,23 +10,29 @@ const ExportOptions = ({ institutionId, timetableData, institutionData }) => {
 
   // Create export data from the timetable data already in frontend
   const createExportData = () => {
-    if (!timetableData || !timetableData.timetable) {
-      return null;
-    }
+  if (!timetableData || !timetableData.timetable) {
+    return null;
+  }
 
-    const exportData = {
-      institution_id: institutionId,
-      institution_name: institutionData?.name || 'Institution',
-      timetable: timetableData.timetable,
-      fitness_score: timetableData.fitness_score || 0,
-      summary: timetableData.summary || {},
-      generation_count: timetableData.generation_count || 0,
-      created_at: timetableData.timestamp || new Date().toISOString(),
-      constraints: timetableData.constraints || {}
-    };
+  // Use institutionData.name if available, otherwise fallback to "Institution"
+  const institutionNameToUse = institutionData?.name || 'Institution';
+  
+  console.log('Export data - Institution name:', institutionNameToUse); // Debug
+  console.log('Institution data:', institutionData); // Debug
 
-    return exportData;
+  const exportData = {
+    institution_id: institutionId,
+    institution_name: institutionNameToUse,
+    timetable: timetableData.timetable,
+    fitness_score: timetableData.fitness_score || 0,
+    summary: timetableData.summary || {},
+    generation_count: timetableData.generation_count || 0,
+    created_at: timetableData.timestamp || new Date().toISOString(),
+    constraints: timetableData.constraints || {}
   };
+
+  return exportData;
+};
 
   const handleExport = async (format) => {
     const exportData = createExportData();

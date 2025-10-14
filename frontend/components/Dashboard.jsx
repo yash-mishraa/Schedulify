@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent } from './ui/card';
 import { Button } from './ui/Button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -29,9 +29,19 @@ const Dashboard = () => {
     const storedName = localStorage.getItem('institutionName');
     const storedFormData = localStorage.getItem('lastFormData');
     
+    console.log('Loading stored institution:', { storedId, storedName }); // Debug
+    
     if (storedId && storedName) {
       setInstitutionId(storedId);
       setInstitutionName(storedName);
+      
+      // Set institution data immediately
+      const instData = {
+        id: storedId,
+        name: storedName,
+        total_timetables_generated: 0
+      };
+      setInstitutionData(instData);
       
       if (storedFormData) {
         try {
@@ -41,26 +51,13 @@ const Dashboard = () => {
         }
       }
       
-      // Create institution data object with the stored name
-      setInstitutionData({
-        id: storedId,
-        name: storedName,
-        total_timetables_generated: 0
-      });
-      
-      // Verify institution exists in backend (optional - don't fail if offline)
-      try {
-        const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/institutions/${storedId}`);
-        setInstitutionData(response.data);
-      } catch (error) {
-        console.log('Could not verify institution in backend (possibly offline):', error);
-        // Don't clear data, keep using stored values
-      }
+      console.log('Institution data set:', instData); // Debug
     }
   };
 
   const loadRecentInstitutions = () => {
     const recent = JSON.parse(localStorage.getItem('recentInstitutions') || '[]');
+    console.log('Loaded recent institutions:', recent); // Debug
     setExistingInstitutions(recent.slice(0, 5));
   };
 
@@ -72,12 +69,25 @@ const Dashboard = () => {
 
     setLoading(true);
     try {
-      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/institutions/`, {
-        name: institutionName,
-        settings: {}
-      });
-
-      const newInstitution = response.data;
+      // Generate a simple institution ID if backend fails
+      const fallbackId = `inst_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      let newInstitution;
+      
+      try {
+        const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/institutions/`, {
+          name: institutionName,
+          settings: {}
+        });
+        newInstitution = response.data;
+      } catch (error) {
+        console.log('Backend unavailable, using fallback:', error);
+        newInstitution = {
+          id: fallbackId,
+          name: institutionName,
+          created_at: new Date().toISOString(),
+          total_timetables_generated: 0
+        };
+      }
       
       // Save to localStorage
       localStorage.setItem('institutionId', newInstitution.id);
@@ -94,7 +104,7 @@ const Dashboard = () => {
       setInstitutionId(newInstitution.id);
       setInstitutionData(newInstitution);
       setExistingInstitutions(updatedRecent.slice(0, 5));
-      setStoredInputs(null); // Clear any previous inputs
+      setStoredInputs(null);
       
       toast.success('Institution created successfully!');
       setShowGenerator(true);
@@ -106,78 +116,56 @@ const Dashboard = () => {
     }
   };
 
-  const selectExistingInstitution = async (instId, instName) => {
-    try {
-      setLoading(true);
-      
-      // Load stored form data for this institution
-      const storedFormData = localStorage.getItem(`formData_${instId}`);
-      let institutionInputs = null;
-      if (storedFormData) {
-        try {
-          institutionInputs = JSON.parse(storedFormData);
-        } catch (e) {
-          console.error('Error parsing stored form data:', e);
-        }
-      }
-      
-      // Save to localStorage
-      localStorage.setItem('institutionId', instId);
-      localStorage.setItem('institutionName', instName);
-      if (institutionInputs) {
-        localStorage.setItem('lastFormData', JSON.stringify(institutionInputs));
-      }
-      
-      // Set institution data immediately with stored values
-      const institutionDataObj = {
-        id: instId,
-        name: instName,
-        total_timetables_generated: 0
-      };
-      
-      setInstitutionId(instId);
-      setInstitutionName(instName);
-      setInstitutionData(institutionDataObj);
-      setStoredInputs(institutionInputs);
-      
-      // Try to get updated data from backend (optional)
+  const selectExistingInstitution = (instId, instName) => {
+    console.log('Selecting institution:', { instId, instName }); // Debug
+    
+    setLoading(true);
+    
+    // Load stored form data for this institution
+    const storedFormData = localStorage.getItem(`formData_${instId}`);
+    let institutionInputs = null;
+    if (storedFormData) {
       try {
-        const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/institutions/${instId}`);
-        setInstitutionData(response.data);
-      } catch (error) {
-        console.log('Could not fetch updated institution data (possibly offline):', error);
-        // Keep using the stored data
+        institutionInputs = JSON.parse(storedFormData);
+      } catch (e) {
+        console.error('Error parsing stored form data:', e);
       }
-      
-      setShowGenerator(true);
-      toast.success(`Loaded ${instName}`);
-    } catch (error) {
-      console.error('Failed to load institution:', error);
-      toast.error('Failed to load institution');
-    } finally {
-      setLoading(false);
     }
+    
+    // Save to localStorage
+    localStorage.setItem('institutionId', instId);
+    localStorage.setItem('institutionName', instName);
+    if (institutionInputs) {
+      localStorage.setItem('lastFormData', JSON.stringify(institutionInputs));
+    }
+    
+    // Set all state immediately
+    const institutionDataObj = {
+      id: instId,
+      name: instName,
+      total_timetables_generated: 0
+    };
+    
+    setInstitutionId(instId);
+    setInstitutionName(instName);
+    setInstitutionData(institutionDataObj);
+    setStoredInputs(institutionInputs);
+    setShowGenerator(true);
+    
+    console.log('Institution data set to:', institutionDataObj); // Debug
+    
+    toast.success(`Loaded ${instName}`);
+    setLoading(false);
   };
 
-  const deleteInstitution = async (instId, instName) => {
-    console.log('Delete institution called for:', instId, instName); // Debug log
+  const handleDeleteClick = (instId, instName) => {
+    console.log('Delete button clicked for:', instId, instName); // Debug
     
-    if (!confirm(`Are you sure you want to delete "${instName}" and all its timetables?`)) {
+    if (!confirm(`Are you sure you want to delete "${instName}"?`)) {
       return;
     }
 
     try {
-      setLoading(true);
-      
-      // Try to delete from backend
-      try {
-        await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/institutions/${instId}`);
-        console.log('Institution deleted from backend');
-      } catch (error) {
-        console.log('Could not delete from backend (possibly offline):', error);
-        // Continue with local deletion
-      }
-      
       // Remove from recent institutions
       const recent = JSON.parse(localStorage.getItem('recentInstitutions') || '[]');
       const updatedRecent = recent.filter(inst => inst.id !== instId);
@@ -203,18 +191,11 @@ const Dashboard = () => {
     } catch (error) {
       console.error('Failed to delete institution:', error);
       toast.error('Failed to delete institution');
-    } finally {
-      setLoading(false);
     }
   };
 
   const goBackToSelection = () => {
     setShowGenerator(false);
-    setInstitutionId('');
-    setInstitutionName('');
-    setInstitutionData(null);
-    setStoredInputs(null);
-    // Don't clear localStorage, just hide the generator
   };
 
   if (showGenerator) {
@@ -279,49 +260,6 @@ const Dashboard = () => {
       </div>
 
       <div className="container mx-auto px-6 py-12">
-        {/* Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-          <div className="glass-card-hover p-6 text-center float-animation">
-            <div className="mb-4">
-              <TrendingUp className="h-12 w-12 text-purple-400 mx-auto glow-purple rounded-full p-2 bg-purple-500/20" />
-            </div>
-            <h3 className="text-lg font-semibold text-white mb-3">AI Optimization</h3>
-            <p className="text-white/70 text-sm">
-              Uses genetic algorithms to create the most efficient schedules with maximum optimization
-            </p>
-          </div>
-
-          <div className="glass-card-hover p-6 text-center float-animation" style={{animationDelay: '0.5s'}}>
-            <div className="mb-4">
-              <Clock className="h-12 w-12 text-blue-400 mx-auto glow-blue rounded-full p-2 bg-blue-500/20" />
-            </div>
-            <h3 className="text-lg font-semibold text-white mb-3">Real-time Updates</h3>
-            <p className="text-white/70 text-sm">
-              Instant synchronization and live updates across all devices with Firebase integration
-            </p>
-          </div>
-
-          <div className="glass-card-hover p-6 text-center float-animation" style={{animationDelay: '1s'}}>
-            <div className="mb-4">
-              <Users className="h-12 w-12 text-green-400 mx-auto rounded-full p-2 bg-green-500/20" />
-            </div>
-            <h3 className="text-lg font-semibold text-white mb-3">Clash-free</h3>
-            <p className="text-white/70 text-sm">
-              Intelligent conflict resolution for teachers, rooms, and consecutive lab sessions
-            </p>
-          </div>
-
-          <div className="glass-card-hover p-6 text-center float-animation" style={{animationDelay: '1.5s'}}>
-            <div className="mb-4">
-              <Building2 className="h-12 w-12 text-orange-400 mx-auto rounded-full p-2 bg-orange-500/20" />
-            </div>
-            <h3 className="text-lg font-semibold text-white mb-3">Multi-Institution</h3>
-            <p className="text-white/70 text-sm">
-              Manage multiple institutions with secure data isolation and persistent storage
-            </p>
-          </div>
-        </div>
-
         {/* Institution Management */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Create New Institution */}
@@ -383,7 +321,7 @@ const Dashboard = () => {
                     key={institution.id} 
                     className="bg-white/10 rounded-lg p-4 flex items-center justify-between hover:bg-white/15 transition-all duration-200"
                   >
-                    <div className="flex-1 cursor-pointer" onClick={() => selectExistingInstitution(institution.id, institution.name)}>
+                    <div className="flex-1">
                       <h3 className="text-white font-medium">{institution.name}</h3>
                       <p className="text-white/60 text-xs">
                         Created: {new Date(institution.created_at).toLocaleDateString()}
@@ -399,11 +337,7 @@ const Dashboard = () => {
                         Load
                       </Button>
                       <Button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          deleteInstitution(institution.id, institution.name);
-                        }}
+                        onClick={() => handleDeleteClick(institution.id, institution.name)}
                         variant="outline"
                         size="sm"
                         disabled={loading}
@@ -433,12 +367,11 @@ const Dashboard = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-white font-semibold text-lg mb-1 flex items-center">
-                      Current Institution
+                      Current Institution: {institutionData.name}
                       {storedInputs && <Edit3 className="h-4 w-4 ml-2 text-green-300" />}
                     </h3>
-                    <p className="text-green-200">{institutionData.name}</p>
                     <p className="text-green-200/80 text-sm">
-                      Timetables Generated: {institutionData.total_timetables_generated || 0}
+                      ID: {institutionData.id}
                       {storedInputs && <span className="ml-3">• Previous inputs saved</span>}
                     </p>
                   </div>
@@ -453,6 +386,15 @@ const Dashboard = () => {
             </Card>
           </div>
         )}
+
+        {/* Debug Info - Remove after testing */}
+        <div className="mt-8 bg-gray-800 p-4 rounded text-white text-xs">
+          <h4>Debug Info:</h4>
+          <p>Institution ID: {institutionId}</p>
+          <p>Institution Name: {institutionName}</p>
+          <p>Institution Data: {JSON.stringify(institutionData)}</p>
+          <p>Recent Institutions: {existingInstitutions.length}</p>
+        </div>
       </div>
     </div>
   );
