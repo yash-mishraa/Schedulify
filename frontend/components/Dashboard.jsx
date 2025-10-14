@@ -160,17 +160,43 @@ const Dashboard = () => {
     setLoading(false);
   };
 
-  const deleteInstitution = (institution) => {
-    if (!confirm(`Are you sure you want to delete "${institution.name}"?`)) return;
+  // BULLETPROOF DELETE FUNCTION
+  const handleDeleteClick = (institutionToDelete) => {
+    // Debug logs
+    console.log('🗑️ Delete button clicked for:', institutionToDelete.name);
+    
+    const userConfirmed = window.confirm(`Are you sure you want to delete "${institutionToDelete.name}"?`);
+    console.log('👤 User confirmed:', userConfirmed);
+    
+    if (!userConfirmed) {
+      console.log('❌ User cancelled deletion');
+      return;
+    }
 
     try {
-      const recent = JSON.parse(localStorage.getItem('recentInstitutions') || '[]');
-      const updated = recent.filter((inst) => inst.id !== institution.id);
-
-      localStorage.setItem('recentInstitutions', JSON.stringify(updated));
-      localStorage.removeItem(`formData_${institution.id}`);
-
-      if (institutionId === institution.id) {
+      console.log('🔄 Starting deletion process...');
+      
+      // Get current institutions from localStorage
+      const currentInstitutions = JSON.parse(localStorage.getItem('recentInstitutions') || '[]');
+      console.log('📋 Current institutions:', currentInstitutions.length);
+      
+      // Filter out the institution to delete
+      const updatedInstitutions = currentInstitutions.filter(
+        (inst) => inst.id !== institutionToDelete.id
+      );
+      console.log('📋 After filtering:', updatedInstitutions.length);
+      
+      // Save back to localStorage
+      localStorage.setItem('recentInstitutions', JSON.stringify(updatedInstitutions));
+      console.log('💾 Saved to localStorage');
+      
+      // Remove form data for this institution
+      localStorage.removeItem(`formData_${institutionToDelete.id}`);
+      console.log('🗑️ Removed form data');
+      
+      // If this was the current institution, clear current state
+      if (institutionId === institutionToDelete.id) {
+        console.log('🔄 Clearing current institution state...');
         localStorage.removeItem('institutionId');
         localStorage.removeItem('institutionName');
         localStorage.removeItem('lastFormData');
@@ -179,12 +205,19 @@ const Dashboard = () => {
         setInstitutionData(null);
         setStoredInputs(null);
         setShowGenerator(false);
+        console.log('✅ Current institution state cleared');
       }
 
-      setExistingInstitutions(updated.slice(0, 5)); // Update list immediately
-      toast.success(`${institution.name} deleted successfully`);
-    } catch (err) {
-      console.error('Error deleting institution:', err);
+      // Force update the UI by setting state directly
+      setExistingInstitutions([...updatedInstitutions.slice(0, 5)]);
+      console.log('🔄 UI state updated');
+      
+      // Success notification
+      toast.success(`${institutionToDelete.name} deleted successfully`);
+      console.log('✅ Delete operation completed successfully');
+      
+    } catch (error) {
+      console.error('❌ Error during deletion:', error);
       toast.error('Failed to delete institution');
     }
   };
@@ -300,9 +333,9 @@ const Dashboard = () => {
 
             {existingInstitutions.length > 0 ? (
               <div className="space-y-3">
-                {existingInstitutions.map((institution) => (
+                {existingInstitutions.map((institution, index) => (
                   <div
-                    key={institution.id}
+                    key={`${institution.id}-${index}`}
                     className="bg-white/10 rounded-lg p-4 flex items-center justify-between hover:bg-white/15 transition-all duration-200"
                   >
                     <div className="flex-1">
@@ -320,13 +353,20 @@ const Dashboard = () => {
                       >
                         Load
                       </Button>
-                      <button
-                        onClick={() => deleteInstitution(institution)}
-                        className="bg-transparent hover:bg-red-500/20 text-white/90 hover:text-white font-medium px-3 py-1.5 text-sm rounded-md border border-white/30 hover:border-red-400 transition-all duration-200"
-                        disabled={loading}
+                      
+                      {/* BULLETPROOF DELETE BUTTON */}
+                      <div
+                        onClick={() => handleDeleteClick(institution)}
+                        className="cursor-pointer bg-transparent hover:bg-red-500/20 text-white/90 hover:text-white font-medium px-3 py-1.5 text-sm rounded-md border border-white/30 hover:border-red-400 transition-all duration-200 flex items-center justify-center"
+                        style={{ 
+                          minWidth: '36px', 
+                          minHeight: '32px',
+                          pointerEvents: loading ? 'none' : 'auto'
+                        }}
+                        title={`Delete ${institution.name}`}
                       >
                         <Trash2 className="h-4 w-4" />
-                      </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -365,6 +405,21 @@ const Dashboard = () => {
             </Card>
           </div>
         )}
+
+        {/* DEBUG PANEL - Remove this after testing */}
+        <div className="mt-8 bg-gray-800/50 rounded-lg p-4 text-white text-xs">
+          <h4 className="font-bold mb-2">🐛 Debug Info:</h4>
+          <p>Existing Institutions: {existingInstitutions.length}</p>
+          <p>Current Institution: {institutionData?.name || 'None'}</p>
+          <div className="mt-2">
+            <strong>Institutions List:</strong>
+            {existingInstitutions.map((inst, i) => (
+              <div key={i} className="ml-4">
+                • {inst.name} (ID: {inst.id})
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
