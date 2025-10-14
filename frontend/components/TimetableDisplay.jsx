@@ -119,12 +119,12 @@ const TimetableDisplay = ({ data, institutionId, onEdit }) => {
               Generated Timetable
             </div>
             <button
-              onClick={onEdit}
-              className="glass-button-secondary flex items-center"
-            >
-              <Edit3 className="h-4 w-4 mr-2" />
-              Edit Configuration
-            </button>
+  onClick={onEdit}
+  className="btn-secondary flex items-center"
+>
+  <Edit3 className="h-4 w-4 mr-2" />
+  Edit Configuration
+</button>
           </div>
         </CardContent>
       </Card>

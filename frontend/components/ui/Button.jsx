@@ -10,22 +10,22 @@ const Button = React.forwardRef(({
   ...props 
 }, ref) => {
   const variants = {
-    default: "glass-button",
-    destructive: "glass-button bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400",
-    outline: "glass-button-secondary",
-    secondary: "glass-button-secondary",
-    ghost: "hover:bg-white/10 text-white transition-all duration-300",
-    link: "text-purple-400 underline-offset-4 hover:underline p-0 h-auto",
+    default: "btn-primary",
+    secondary: "btn-secondary", 
+    outline: "btn-outline",
+    destructive: "btn-primary bg-gradient-to-r from-red-600/80 to-red-500/80 hover:from-red-500/90 hover:to-red-400/90",
+    ghost: "hover:bg-white/10 text-white/90 hover:text-white transition-all duration-200",
+    link: "text-purple-300 hover:text-purple-200 underline-offset-4 hover:underline p-0 h-auto",
   }
   
   const sizes = {
-    default: "px-6 py-3",
-    sm: "px-4 py-2 text-sm",
-    lg: "px-8 py-4 text-lg",
-    icon: "h-10 w-10 p-0",
+    default: "px-4 py-2",
+    sm: "btn-small",
+    lg: "btn-large", 
+    icon: "h-9 w-9 p-0",
   }
   
-  const baseClasses = `inline-flex items-center justify-center rounded-xl font-medium transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50`
+  const baseClasses = `inline-flex items-center justify-center font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50`
   
   return (
     <button

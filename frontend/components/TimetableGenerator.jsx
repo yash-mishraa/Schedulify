@@ -224,26 +224,27 @@ const TimetableGenerator = ({ institutionId }) => {
             </div>
             <div className="flex space-x-2">
               <Button
-                onClick={checkApiConnection}
-                variant="outline"
-                size="sm"
-                disabled={apiStatus === 'checking'}
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${apiStatus === 'checking' ? 'animate-spin' : ''}`} />
-                Check Connection
-              </Button>
-              {apiStatus === 'disconnected' && (
-                <Button
-                  onClick={() => {
-                    window.open(`${process.env.NEXT_PUBLIC_API_URL}/health`, '_blank');
-                    setTimeout(() => checkApiConnection(), 5000);
-                  }}
-                  variant="default"
-                  size="sm"
-                >
-                  Wake Up Backend
-                </Button>
-              )}
+  onClick={checkApiConnection}
+  variant="outline"
+  size="sm"
+  disabled={apiStatus === 'checking'}
+>
+  <RefreshCw className={`h-4 w-4 mr-2 ${apiStatus === 'checking' ? 'animate-spin' : ''}`} />
+  Check Connection
+</Button>
+
+{apiStatus === 'disconnected' && (
+  <Button
+    onClick={() => {
+      window.open(`${process.env.NEXT_PUBLIC_API_URL}/health`, '_blank');
+      setTimeout(() => checkApiConnection(), 5000);
+    }}
+    variant="default"
+    size="sm"
+  >
+    Wake Up Backend
+  </Button>
+)}
             </div>
           </div>
           {apiStatus === 'disconnected' && (

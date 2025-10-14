@@ -1,5 +1,4 @@
 import * as React from "react"
-import { useState } from "react"
 
 const Tabs = ({ value, onValueChange, className = "", children, ...props }) => {
   return (
@@ -14,7 +13,7 @@ const Tabs = ({ value, onValueChange, className = "", children, ...props }) => {
 const TabsList = ({ className = "", children, activeTab, onTabChange, ...props }) => {
   return (
     <div
-      className={`glass-tabs inline-flex h-12 items-center justify-center text-white/80 ${className}`}
+      className={`glass-tabs inline-flex items-center justify-center text-white/80 ${className}`}
       {...props}
     >
       {React.Children.map(children, child => 

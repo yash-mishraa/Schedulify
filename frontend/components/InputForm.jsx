@@ -210,14 +210,14 @@ const InputForm = ({ onSubmit, loading, validationResults, initialData }) => {
           <CardTitle className="flex items-center justify-between text-white">
             Courses
             <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={addCourse}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Course
-            </Button>
+  type="button"
+  variant="secondary"
+  size="sm"
+  onClick={addCourse}
+>
+  <Plus className="h-4 w-4 mr-2" />
+  Add Course
+</Button>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -227,13 +227,13 @@ const InputForm = ({ onSubmit, loading, validationResults, initialData }) => {
                 <h4 className="font-medium text-white">Course {index + 1}</h4>
                 {formData.courses.length > 1 && (
                   <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => removeCourse(index)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+  type="button"
+  variant="outline"
+  size="sm"
+  onClick={() => removeCourse(index)}
+>
+  <Trash2 className="h-4 w-4" />
+</Button>
                 )}
               </div>
               
@@ -355,15 +355,15 @@ const InputForm = ({ onSubmit, loading, validationResults, initialData }) => {
         <CardHeader>
           <CardTitle className="flex items-center justify-between text-white">
             Custom Constraints
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={addConstraint}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Constraint
-            </Button>
+<Button
+  type="button"
+  variant="secondary"
+  size="sm"
+  onClick={addConstraint}
+>
+  <Plus className="h-4 w-4 mr-2" />
+  Add Constraint
+</Button>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -388,23 +388,23 @@ const InputForm = ({ onSubmit, loading, validationResults, initialData }) => {
                 onChange={(e) => updateConstraint(index, e.target.value)}
               />
               {formData.custom_constraints.length > 1 && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => removeConstraint(index)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+<Button
+  type="button"
+  variant="outline"
+  size="sm"
+  onClick={() => removeConstraint(index)}
+>
+  <Trash2 className="h-4 w-4" />
+</Button>
               )}
             </div>
           ))}
         </CardContent>
       </Card>
 
-      <Button type="submit" className="glass-button w-full" disabled={loading}>
-        {loading ? 'Generating Timetable...' : initialData ? 'Regenerate Optimized Timetable' : 'Generate Optimized Timetable'}
-      </Button>
+<Button type="submit" className="w-full btn-large" disabled={loading}>
+  {loading ? 'Generating Timetable...' : initialData ? 'Regenerate Optimized Timetable' : 'Generate Optimized Timetable'}
+</Button>
     </form>
   );
 };
