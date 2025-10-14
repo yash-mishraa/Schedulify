@@ -1,19 +1,15 @@
-from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
+from fastapi import APIRouter, HTTPException, BackgroundTasks
 from typing import List, Dict, Any
 import asyncio
 from datetime import datetime
 import pytz
 
-from app.models.timetable import TimetableRequest, TimetableResponse
-from app.services.genetic_algorithm import GeneticTimetableOptimizer, Course
-from app.services.firebase_service import FirebaseService
-from app.utils.export_utils import ExportUtils
+from ..models.timetable import TimetableRequest, TimetableResponse
+from ..services.genetic_algorithm import GeneticTimetableOptimizer, Course
+from ..services.firebase_service import get_firebase_service
+from ..utils.export_utils import ExportUtils
 
-router = APIRouter()
-
-# Create Firebase service instance when needed (not at module level)
-def get_firebase_service():
-    return FirebaseService()
+router = APIRouter(prefix="/api/v1/timetable", tags=["timetable"])
 
 def get_export_utils():
     return ExportUtils()
@@ -23,6 +19,10 @@ async def update_institution_stats(institution_id: str):
     try:
         firebase_service = get_firebase_service()
         ist_timezone = pytz.timezone('Asia/Kolkata')
+        
+        if not firebase_service.db:
+            print("Firebase not available, skipping stats update")
+            return
         
         doc_ref = firebase_service.db.collection('institutions').document(institution_id)
         doc = doc_ref.get()

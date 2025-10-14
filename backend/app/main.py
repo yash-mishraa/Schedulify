@@ -34,9 +34,6 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    import pytz
-    from datetime import datetime
-    
     ist_timezone = pytz.timezone('Asia/Kolkata')
     current_time = datetime.now(ist_timezone)
     

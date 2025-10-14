@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Optional
 from datetime import datetime
 import uuid
+import pytz
 
 from ..models.institution import Institution, InstitutionCreate, InstitutionUpdate, InstitutionResponse
 from ..services.firebase_service import get_firebase_service
@@ -17,10 +18,14 @@ async def create_institution(institution_data: InstitutionCreate):
         # Generate unique institution ID
         institution_id = f"inst_{int(datetime.now().timestamp())}_{uuid.uuid4().hex[:8]}"
         
+        # Get IST timezone
+        ist_timezone = pytz.timezone('Asia/Kolkata')
+        current_ist = datetime.now(ist_timezone)
+        
         institution = {
             "id": institution_id,
             "name": institution_data.name,
-            "created_at": datetime.now().isoformat(),
+            "created_at": current_ist.isoformat(),
             "updated_at": None,
             "settings": institution_data.settings or {},
             "active_timetables": [],
@@ -29,7 +34,8 @@ async def create_institution(institution_data: InstitutionCreate):
         }
         
         # Save to Firebase
-        firebase_service.db.collection('institutions').document(institution_id).set(institution)
+        if firebase_service.db:
+            firebase_service.db.collection('institutions').document(institution_id).set(institution)
         
         return InstitutionResponse(**institution)
         
@@ -41,6 +47,9 @@ async def get_institution(institution_id: str):
     """Get institution by ID"""
     try:
         firebase_service = get_firebase_service()
+        
+        if not firebase_service.db:
+            raise HTTPException(status_code=503, detail="Database service unavailable")
         
         doc = firebase_service.db.collection('institutions').document(institution_id).get()
         
@@ -61,6 +70,9 @@ async def update_institution(institution_id: str, update_data: InstitutionUpdate
     try:
         firebase_service = get_firebase_service()
         
+        if not firebase_service.db:
+            raise HTTPException(status_code=503, detail="Database service unavailable")
+        
         doc_ref = firebase_service.db.collection('institutions').document(institution_id)
         doc = doc_ref.get()
         
@@ -75,7 +87,9 @@ async def update_institution(institution_id: str, update_data: InstitutionUpdate
         if update_data.settings is not None:
             institution_data["settings"] = update_data.settings
         
-        institution_data["updated_at"] = datetime.now().isoformat()
+        # Get IST timezone
+        ist_timezone = pytz.timezone('Asia/Kolkata')
+        institution_data["updated_at"] = datetime.now(ist_timezone).isoformat()
         
         # Save to Firebase
         doc_ref.set(institution_data)
@@ -92,6 +106,9 @@ async def get_institution_timetables(institution_id: str):
     """Get all timetables for an institution"""
     try:
         firebase_service = get_firebase_service()
+        
+        if not firebase_service.db:
+            raise HTTPException(status_code=503, detail="Database service unavailable")
         
         # Check if institution exists
         institution_doc = firebase_service.db.collection('institutions').document(institution_id).get()
@@ -130,6 +147,9 @@ async def delete_institution(institution_id: str):
     """Delete institution and all its data"""
     try:
         firebase_service = get_firebase_service()
+        
+        if not firebase_service.db:
+            raise HTTPException(status_code=503, detail="Database service unavailable")
         
         # Check if institution exists
         institution_doc = firebase_service.db.collection('institutions').document(institution_id).get()
