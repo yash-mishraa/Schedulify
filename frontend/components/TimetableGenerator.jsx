@@ -378,11 +378,12 @@ const TimetableGenerator = ({ institutionId, institutionData }) => {
         )}
 
         {activeTab === 'export' && timetableData && (
-          <ExportOptions 
-            institutionId={institutionId}
-            timetableData={timetableData}
-          />
-        )}
+  <ExportOptions 
+    institutionId={institutionId}
+    timetableData={timetableData}
+    institutionData={institutionData}
+  />
+)}
       </div>
 
       {/* Loading Modal */}
