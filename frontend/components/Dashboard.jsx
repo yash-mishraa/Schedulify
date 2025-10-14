@@ -5,36 +5,152 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/Button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Calendar, Clock, Users, Building2, TrendingUp, Sparkles, Zap, Shield } from 'lucide-react';
+import { Calendar, Clock, Users, Building2, TrendingUp, Sparkles, Zap, Shield, Plus, Trash2, History } from 'lucide-react';
 import TimetableGenerator from './TimetableGenerator';
+import axios from 'axios';
+import toast from 'react-hot-toast';
 
 const Dashboard = () => {
   const [institutionId, setInstitutionId] = useState('');
   const [institutionName, setInstitutionName] = useState('');
+  const [institutionData, setInstitutionData] = useState(null);
   const [showGenerator, setShowGenerator] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [existingInstitutions, setExistingInstitutions] = useState([]);
 
   useEffect(() => {
-    let storedId = localStorage.getItem('institutionId');
-    let storedName = localStorage.getItem('institutionName');
-    
-    if (!storedId) {
-      storedId = `inst_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      localStorage.setItem('institutionId', storedId);
-    }
-    
-    setInstitutionId(storedId);
-    setInstitutionName(storedName || 'My Institution');
+    loadStoredInstitution(); // Renamed to avoid conflict
+    loadRecentInstitutions();
   }, []);
 
-  const handleInstitutionSetup = () => {
-    if (institutionName.trim()) {
-      localStorage.setItem('institutionName', institutionName);
+  const loadStoredInstitution = async () => { // Renamed function
+    const storedId = localStorage.getItem('institutionId');
+    const storedName = localStorage.getItem('institutionName');
+    
+    if (storedId && storedName) {
+      setInstitutionId(storedId);
+      setInstitutionName(storedName);
+      
+      // Verify institution exists in backend
+      try {
+        const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/institutions/${storedId}`);
+        setInstitutionData(response.data);
+      } catch (error) {
+        console.error('Institution not found in backend:', error);
+        // Clear invalid data
+        localStorage.removeItem('institutionId');
+        localStorage.removeItem('institutionName');
+        setInstitutionId('');
+        setInstitutionName('');
+      }
+    }
+  };
+
+  const loadRecentInstitutions = () => {
+    const recent = JSON.parse(localStorage.getItem('recentInstitutions') || '[]');
+    setExistingInstitutions(recent.slice(0, 5)); // Show last 5
+  };
+
+  const createNewInstitution = async () => {
+    if (!institutionName.trim()) {
+      toast.error('Please enter institution name');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/institutions/`, {
+        name: institutionName,
+        settings: {}
+      });
+
+      const newInstitution = response.data;
+      
+      // Save to localStorage
+      localStorage.setItem('institutionId', newInstitution.id);
+      localStorage.setItem('institutionName', newInstitution.name);
+      
+      // Add to recent institutions
+      const recent = JSON.parse(localStorage.getItem('recentInstitutions') || '[]');
+      const updatedRecent = [
+        { id: newInstitution.id, name: newInstitution.name, created_at: newInstitution.created_at },
+        ...recent.filter(inst => inst.id !== newInstitution.id)
+      ].slice(0, 10);
+      localStorage.setItem('recentInstitutions', JSON.stringify(updatedRecent));
+      
+      setInstitutionId(newInstitution.id);
+      setInstitutionData(newInstitution);
+      setExistingInstitutions(updatedRecent.slice(0, 5));
+      
+      toast.success('Institution created successfully!');
       setShowGenerator(true);
+    } catch (error) {
+      console.error('Failed to create institution:', error);
+      toast.error('Failed to create institution. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const selectExistingInstitution = async (instId, instName) => { // Renamed function
+    try {
+      setLoading(true);
+      const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/institutions/${instId}`);
+      
+      // Save to localStorage
+      localStorage.setItem('institutionId', instId);
+      localStorage.setItem('institutionName', instName);
+      
+      setInstitutionId(instId);
+      setInstitutionName(instName);
+      setInstitutionData(response.data);
+      setShowGenerator(true);
+      
+      toast.success(`Loaded ${instName}`);
+    } catch (error) {
+      console.error('Failed to load institution:', error);
+      toast.error('Failed to load institution');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteInstitution = async (instId, instName) => {
+    if (!confirm(`Are you sure you want to delete "${instName}" and all its timetables?`)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/institutions/${instId}`);
+      
+      // Remove from recent institutions
+      const recent = JSON.parse(localStorage.getItem('recentInstitutions') || '[]');
+      const updatedRecent = recent.filter(inst => inst.id !== instId);
+      localStorage.setItem('recentInstitutions', JSON.stringify(updatedRecent));
+      setExistingInstitutions(updatedRecent.slice(0, 5));
+      
+      // If this was the current institution, clear it
+      if (institutionId === instId) {
+        localStorage.removeItem('institutionId');
+        localStorage.removeItem('institutionName');
+        setInstitutionId('');
+        setInstitutionName('');
+        setInstitutionData(null);
+        setShowGenerator(false);
+      }
+      
+      toast.success(`${instName} deleted successfully`);
+    } catch (error) {
+      console.error('Failed to delete institution:', error);
+      toast.error('Failed to delete institution');
+    } finally {
+      setLoading(false);
     }
   };
 
   if (showGenerator) {
-    return <TimetableGenerator institutionId={institutionId} />;
+    return <TimetableGenerator institutionId={institutionId} institutionData={institutionData} />;
   }
 
   return (
@@ -111,95 +227,132 @@ const Dashboard = () => {
             <div className="mb-4">
               <Building2 className="h-12 w-12 text-orange-400 mx-auto rounded-full p-2 bg-orange-500/20" />
             </div>
-            <h3 className="text-lg font-semibold text-white mb-3">Multi-tenant</h3>
+            <h3 className="text-lg font-semibold text-white mb-3">Multi-Institution</h3>
             <p className="text-white/70 text-sm">
-              Supports multiple institutions with secure data isolation and cloud storage
+              Manage multiple institutions with secure data isolation and persistent storage
             </p>
           </div>
         </div>
 
-        {/* Institution Setup */}
-        <div className="max-w-md mx-auto">
+        {/* Institution Management */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Create New Institution */}
           <div className="glass-card p-8">
             <div className="text-center mb-6">
-              <h2 className="text-2xl font-bold text-white mb-2">Setup Your Institution</h2>
-              <p className="text-white/70">Get started with AI-powered scheduling</p>
+              <h2 className="text-2xl font-bold text-white mb-2 flex items-center justify-center">
+                <Plus className="h-6 w-6 mr-2" />
+                Create New Institution
+              </h2>
+              <p className="text-white/70">Set up a new institution for timetable generation</p>
             </div>
             
             <div className="space-y-6">
               <div>
-                <Label className="text-white mb-2 block">Institution Name</Label>
+                <Label className="text-label mb-2 block">Institution Name</Label>
                 <Input
                   className="glass-input w-full"
                   value={institutionName}
                   onChange={(e) => setInstitutionName(e.target.value)}
                   placeholder="Enter your institution name"
+                  disabled={loading}
                 />
-              </div>
-              
-              <div className="glass-card p-4 bg-white/5">
-                <div className="text-sm text-white/80">
-                  <p className="font-medium text-purple-300">Institution ID:</p>
-                  <p className="font-mono text-xs break-all mt-1">{institutionId}</p>
-                  <p className="text-xs mt-2 text-white/60">
-                    This unique ID will be used to save and sync your timetables securely
-                  </p>
-                </div>
               </div>
 
               <Button 
-                onClick={handleInstitutionSetup}
-                className="glass-button w-full"
-                disabled={!institutionName.trim()}
+                onClick={createNewInstitution}
+                className="btn-primary w-full btn-large"
+                disabled={!institutionName.trim() || loading}
               >
-                <Sparkles className="h-4 w-4 mr-2" />
-                Start Creating Timetable
+                {loading ? (
+                  <>
+                    <Clock className="h-4 w-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Create Institution
+                  </>
+                )}
               </Button>
             </div>
           </div>
+
+          {/* Recent Institutions */}
+          <div className="glass-card p-8">
+            <div className="text-center mb-6">
+              <h2 className="text-2xl font-bold text-white mb-2 flex items-center justify-center">
+                <History className="h-6 w-6 mr-2" />
+                Recent Institutions
+              </h2>
+              <p className="text-white/70">Continue with previously created institutions</p>
+            </div>
+
+            {existingInstitutions.length > 0 ? (
+              <div className="space-y-3">
+                {existingInstitutions.map((institution) => (
+                  <div key={institution.id} className="bg-white/10 rounded-lg p-4 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-white font-medium">{institution.name}</h3>
+                      <p className="text-white/60 text-xs">
+                        Created: {new Date(institution.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button
+                        onClick={() => selectExistingInstitution(institution.id, institution.name)}
+                        variant="secondary"
+                        size="sm"
+                        disabled={loading}
+                      >
+                        Load
+                      </Button>
+                      <Button
+                        onClick={() => deleteInstitution(institution.id, institution.name)}
+                        variant="outline"  
+                        size="sm"
+                        disabled={loading}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Building2 className="h-12 w-12 text-white/40 mx-auto mb-4" />
+                <p className="text-white/60">No recent institutions found</p>
+                <p className="text-white/40 text-sm">Create your first institution to get started</p>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* How it Works */}
-        <div className="mt-20">
-          <div className="text-center mb-12">
-            <h3 className="text-3xl font-bold gradient-text mb-4">How It Works</h3>
-            <p className="text-white/70 max-w-2xl mx-auto">
-              Our advanced AI system creates optimized timetables in three simple steps
-            </p>
+        {/* Current Institution Info */}
+        {institutionData && (
+          <div className="mt-8">
+            <Card className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-green-400/30">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-white font-semibold text-lg mb-1">Current Institution</h3>
+                    <p className="text-green-200">{institutionData.name}</p>
+                    <p className="text-green-200/80 text-sm">
+                      Timetables Generated: {institutionData.total_timetables_generated}
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => setShowGenerator(true)}
+                    className="btn-primary"
+                  >
+                    Continue to Timetable Generator
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="glass-card-hover p-8 text-center">
-              <div className="bg-gradient-to-r from-blue-500 to-purple-500 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-6 glow-purple">
-                <span className="text-2xl font-bold text-white">1</span>
-              </div>
-              <h4 className="text-xl font-semibold text-white mb-4">Input Requirements</h4>
-              <p className="text-white/70">
-                Enter your courses, teachers, working days, constraints, and lab duration requirements
-              </p>
-            </div>
-
-            <div className="glass-card-hover p-8 text-center">
-              <div className="bg-gradient-to-r from-green-500 to-blue-500 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-6 glow-blue">
-                <span className="text-2xl font-bold text-white">2</span>
-              </div>
-              <h4 className="text-xl font-semibold text-white mb-4">AI Processing</h4>
-              <p className="text-white/70">
-                Our genetic algorithm optimizes your schedule with consecutive lab sessions and clash resolution
-              </p>
-            </div>
-
-            <div className="glass-card-hover p-8 text-center">
-              <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-6">
-                <span className="text-2xl font-bold text-white">3</span>
-              </div>
-              <h4 className="text-xl font-semibold text-white mb-4">Get Results</h4>
-              <p className="text-white/70">
-                Download your optimized timetable in PDF or Excel format with detailed statistics
-              </p>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

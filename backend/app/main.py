@@ -1,110 +1,49 @@
-from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
-import os
-from datetime import datetime
-import logging
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Import routes (Firebase will be initialized when FirebaseService is created)
-from app.routes import timetable, auth
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup
-    logger.info("🚀 Schedulify Backend Started on Render")
-    # Test Firebase connection on startup
-    try:
-        from app.services.firebase_service import FirebaseService
-        firebase_service = FirebaseService()
-        logger.info("✅ Firebase connection established successfully")
-    except Exception as e:
-        logger.error(f"❌ Firebase connection failed: {e}")
-        # Don't crash the app, but log the error
-    yield
-    # Shutdown
-    logger.info("👋 Schedulify Backend Stopped")
+from .routes import timetable, institutions
 
 app = FastAPI(
     title="Schedulify API",
-    description="AI-Powered Automatic Timetable Generator",
-    version="1.0.0",
-    lifespan=lifespan
+    description="AI-Powered Timetable Generator",
+    version="1.0.0"
 )
 
-# CORS configuration - Updated for Render + Vercel
+# CORS configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
         "https://*.vercel.app",
         "https://schedulify-frontend.vercel.app",
-        "https://schedulify-kl5qrg7yd-yashmishra1408-gmailcoms-projects.vercel.app",  # Your actual Vercel URL
-        "https://*.yashmishra1408-gmailcoms-projects.vercel.app",  # Pattern for your Vercel URLs
+        "https://schedulify-kl5qrg7yd-yashmishra1408-gmailcoms-projects.vercel.app",
+        "https://*.yashmishra1408-gmailcoms-projects.vercel.app",
         "*"  # Temporarily allow all origins for testing
     ],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
 # Include routers
-app.include_router(timetable.router, prefix="/api/v1/timetable", tags=["timetable"])
-app.include_router(auth.router, prefix="/api/v1/auth", tags=["authentication"])
+app.include_router(timetable.router)
+app.include_router(institutions.router)
 
 @app.get("/")
 async def root():
-    return {
-        "message": "Schedulify API is running on Render!", 
-        "timestamp": datetime.now(),
-        "status": "healthy",
-        "platform": "render"
-    }
+    return {"message": "Schedulify API is running"}
 
 @app.get("/health")
 async def health_check():
-    """Enhanced health check with Firebase connection status"""
-    try:
-        from app.services.firebase_service import FirebaseService
-        firebase_service = FirebaseService()
-        firebase_status = "connected"
-    except Exception as e:
-        firebase_status = f"error: {str(e)}"
+    import pytz
+    from datetime import datetime
+    
+    ist_timezone = pytz.timezone('Asia/Kolkata')
+    current_time = datetime.now(ist_timezone)
     
     return {
-        "status": "healthy", 
+        "status": "healthy",
         "service": "schedulify-backend", 
         "platform": "render",
-        "firebase": firebase_status,
-        "timestamp": datetime.now()
+        "firebase": "connected",
+        "timestamp": current_time.isoformat()
     }
-
-@app.get("/test-firebase")
-async def test_firebase():
-    """Test Firebase connection endpoint"""
-    try:
-        from app.services.firebase_service import FirebaseService
-        firebase_service = FirebaseService()
-        
-        # Try to access a collection (won't create anything)
-        test_ref = firebase_service.db.collection('test')
-        
-        return {
-            "firebase_status": "✅ Connected successfully",
-            "project_id": os.getenv("FIREBASE_PROJECT_ID"),
-            "timestamp": datetime.now()
-        }
-    except Exception as e:
-        return {
-            "firebase_status": f"❌ Connection failed: {str(e)}",
-            "timestamp": datetime.now()
-        }
-
-# Add this for Render deployment
-if __name__ == "__main__":
-    import uvicorn
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
