@@ -3,7 +3,8 @@ from typing import List, Dict, Any
 import asyncio
 from datetime import datetime
 import pytz
-from ..utils.export_utils import ExportUtils
+from google.cloud import firestore
+
 from ..models.timetable import TimetableRequest, TimetableResponse
 from ..services.genetic_algorithm import GeneticTimetableOptimizer, Course
 from ..services.firebase_service import get_firebase_service
@@ -55,7 +56,7 @@ async def generate_timetable(
                 lectures_per_week=course_data.lectures_per_week,
                 type=course_data.type,
                 duration=request.lecture_duration,
-                lab_duration=getattr(course_data, 'lab_duration', 2)  # Add lab_duration support
+                lab_duration=getattr(course_data, 'lab_duration', 2)
             )
             courses.append(course)
         
@@ -82,97 +83,97 @@ async def generate_timetable(
         
         # Get current IST time
         ist_timezone = pytz.timezone('Asia/Kolkata')
-        current_utc = datetime.utcnow()
-        current_ist = current_utc.replace(tzinfo=pytz.utc).astimezone(ist_timezone)
+        current_ist = datetime.now(ist_timezone)
         
-        # Save to Firebase in background
+        # Prepare complete timetable data for storage
+        complete_timetable_data = {
+            'institution_id': request.institution_id,
+            'timetable': result['timetable'],
+            'fitness_score': result['fitness_score'],
+            'summary': result['summary'],
+            'generation_count': result['generation'],
+            'created_at': current_ist.isoformat(),
+            'updated_at': current_ist.isoformat(),
+            'constraints': constraints,
+            'courses_data': [course.dict() for course in courses],
+            'resources': request.resources
+        }
+        
+        # Save to Firebase immediately (not in background)
         firebase_service = get_firebase_service()
-        background_tasks.add_task(
-            firebase_service.save_timetable,
-            request.institution_id,
-            result
-        )
+        if firebase_service.db:
+            try:
+                # Save with a specific document ID for easy retrieval
+                doc_id = f"{request.institution_id}_{int(current_ist.timestamp())}"
+                firebase_service.db.collection('timetables').document(doc_id).set(complete_timetable_data)
+                
+                # Also update the "latest" document for this institution
+                latest_doc_id = f"{request.institution_id}_latest"
+                firebase_service.db.collection('timetables').document(latest_doc_id).set(complete_timetable_data)
+                
+                print(f"Timetable saved successfully: {doc_id} and {latest_doc_id}")
+            except Exception as e:
+                print(f"Error saving to Firebase: {e}")
         
-        # Update institution stats in background
-        background_tasks.add_task(
-            update_institution_stats,
-            request.institution_id
-        )
+        # Background tasks
+        background_tasks.add_task(update_institution_stats, request.institution_id)
+        background_tasks.add_task(save_user_inputs_background, request.institution_id, request.dict())
         
-        # Also save user inputs in background
-        background_tasks.add_task(
-            firebase_service.save_user_inputs,
-            request.institution_id,
-            request.dict()
-        )
-        
+        # Return response
         return TimetableResponse(
             timetable=result['timetable'],
             fitness_score=result['fitness_score'],
             summary=result['summary'],
             generation_count=result['generation'],
             institution_id=request.institution_id,
-            timestamp=current_ist.isoformat()  # Proper IST timestamp
+            timestamp=current_ist.isoformat()
         )
         
     except Exception as e:
+        print(f"Timetable generation error: {e}")
         raise HTTPException(status_code=500, detail=f"Timetable generation failed: {str(e)}")
+
+async def save_user_inputs_background(institution_id: str, request_data: dict):
+    """Save user inputs in background"""
+    try:
+        firebase_service = get_firebase_service()
+        if firebase_service.db:
+            await firebase_service.save_user_inputs(institution_id, request_data)
+    except Exception as e:
+        print(f"Error saving user inputs: {e}")
 
 @router.get("/{institution_id}")
 async def get_timetable(institution_id: str):
     """Retrieve saved timetable"""
     try:
         firebase_service = get_firebase_service()
-        timetable = await firebase_service.get_timetable(institution_id)
         
-        if not timetable:
-            raise HTTPException(status_code=404, detail="Timetable not found")
+        if not firebase_service.db:
+            raise HTTPException(status_code=503, detail="Database service unavailable")
         
-        return timetable
+        # Try to get the latest timetable
+        latest_doc_id = f"{institution_id}_latest"
+        doc = firebase_service.db.collection('timetables').document(latest_doc_id).get()
+        
+        if doc.exists:
+            return doc.to_dict()
+        
+        # Fallback: get the most recent timetable
+        query = (firebase_service.db.collection('timetables')
+                .where('institution_id', '==', institution_id)
+                .order_by('created_at', direction=firestore.Query.DESCENDING)
+                .limit(1))
+        
+        docs = list(query.stream())
+        if docs:
+            return docs[0].to_dict()
+        
+        raise HTTPException(status_code=404, detail="Timetable not found")
         
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving timetable: {str(e)}")
-
-@router.get("/{institution_id}/history")
-async def get_timetable_history(institution_id: str):
-    """Get timetable generation history for an institution"""
-    try:
-        firebase_service = get_firebase_service()
-        
-        # Check if institution exists
-        institution_doc = firebase_service.db.collection('institutions').document(institution_id).get()
-        if not institution_doc.exists:
-            raise HTTPException(status_code=404, detail="Institution not found")
-        
-        # Get timetables for this institution
-        timetables_ref = firebase_service.db.collection('timetables').where('institution_id', '==', institution_id)
-        timetables = []
-        
-        for doc in timetables_ref.stream():
-            timetable_data = doc.to_dict()
-            timetables.append({
-                "id": doc.id,
-                "created_at": timetable_data.get("created_at"),
-                "fitness_score": timetable_data.get("fitness_score"),
-                "summary": timetable_data.get("summary", {}),
-                "generation_count": timetable_data.get("generation_count", 0)
-            })
-        
-        # Sort by creation date (newest first)
-        timetables.sort(key=lambda x: x.get("created_at", ""), reverse=True)
-        
-        return {
-            "institution_id": institution_id,
-            "total_timetables": len(timetables),
-            "timetables": timetables[:10]  # Return last 10 timetables
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get timetable history: {str(e)}")
 
 @router.post("/export/{institution_id}")
 async def export_timetable(
@@ -184,8 +185,15 @@ async def export_timetable(
         firebase_service = get_firebase_service()
         export_utils = ExportUtils()
         
-        # Get latest timetable for this institution
-        if firebase_service.db:
+        if not firebase_service.db:
+            raise HTTPException(status_code=503, detail="Database service unavailable")
+        
+        # Try to get the latest timetable first
+        latest_doc_id = f"{institution_id}_latest"
+        doc = firebase_service.db.collection('timetables').document(latest_doc_id).get()
+        
+        if not doc.exists:
+            # Fallback: get the most recent timetable
             query = (firebase_service.db.collection('timetables')
                     .where('institution_id', '==', institution_id)
                     .order_by('created_at', direction=firestore.Query.DESCENDING)
@@ -193,12 +201,13 @@ async def export_timetable(
             
             docs = list(query.stream())
             if not docs:
-                raise HTTPException(status_code=404, detail="No timetable found for this institution")
+                raise HTTPException(status_code=404, detail="No timetable found for this institution. Please generate a timetable first.")
             
             timetable_data = docs[0].to_dict()
         else:
-            # Fallback for when Firebase is not available
-            raise HTTPException(status_code=503, detail="Database service unavailable")
+            timetable_data = doc.to_dict()
+        
+        print(f"Found timetable data for institution {institution_id}")
         
         # Get IST date for filename
         ist_timezone = pytz.timezone('Asia/Kolkata')
@@ -231,6 +240,46 @@ async def export_timetable(
     except Exception as e:
         print(f"Export error: {e}")
         raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
+
+@router.get("/{institution_id}/history")
+async def get_timetable_history(institution_id: str):
+    """Get timetable generation history for an institution"""
+    try:
+        firebase_service = get_firebase_service()
+        
+        if not firebase_service.db:
+            return {
+                "institution_id": institution_id,
+                "total_timetables": 0,
+                "timetables": []
+            }
+        
+        # Get timetables for this institution (excluding the "latest" document)
+        timetables_ref = firebase_service.db.collection('timetables').where('institution_id', '==', institution_id)
+        timetables = []
+        
+        for doc in timetables_ref.stream():
+            if not doc.id.endswith('_latest'):  # Exclude the latest document
+                timetable_data = doc.to_dict()
+                timetables.append({
+                    "id": doc.id,
+                    "created_at": timetable_data.get("created_at"),
+                    "fitness_score": timetable_data.get("fitness_score"),
+                    "summary": timetable_data.get("summary", {}),
+                    "generation_count": timetable_data.get("generation_count", 0)
+                })
+        
+        # Sort by creation date (newest first)
+        timetables.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        
+        return {
+            "institution_id": institution_id,
+            "total_timetables": len(timetables),
+            "timetables": timetables[:10]  # Return last 10 timetables
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get timetable history: {str(e)}")
 
 @router.post("/validate")
 async def validate_constraints(request: TimetableRequest):
@@ -337,14 +386,6 @@ async def validate_constraints(request: TimetableRequest):
                     f"Teacher '{teacher}' has high workload ({workload} hours/week). This may cause scheduling conflicts."
                 )
         
-        # Check for conflicting custom constraints
-        custom_constraints = request.custom_constraints or []
-        for constraint in custom_constraints:
-            if constraint and constraint.strip():
-                constraint_lower = constraint.lower()
-                if any(word in constraint_lower for word in ['contradiction', 'conflict', 'impossible']):
-                    validation_results['warnings'].append(f"Potential constraint conflict: {constraint}")
-        
         return validation_results
         
     except Exception as e:
@@ -356,10 +397,8 @@ async def delete_all_timetables(institution_id: str):
     try:
         firebase_service = get_firebase_service()
         
-        # Check if institution exists
-        institution_doc = firebase_service.db.collection('institutions').document(institution_id).get()
-        if not institution_doc.exists:
-            raise HTTPException(status_code=404, detail="Institution not found")
+        if not firebase_service.db:
+            raise HTTPException(status_code=503, detail="Database service unavailable")
         
         # Delete all timetables for this institution
         timetables_ref = firebase_service.db.collection('timetables').where('institution_id', '==', institution_id)
@@ -369,13 +408,25 @@ async def delete_all_timetables(institution_id: str):
             doc.reference.delete()
             deleted_count += 1
         
-        # Reset institution timetable count
-        institution_data = institution_doc.to_dict()
-        institution_data["total_timetables_generated"] = 0
-        institution_data["last_timetable_generated"] = None
-        institution_data["updated_at"] = datetime.now(pytz.timezone('Asia/Kolkata')).isoformat()
+        # Also delete the latest document specifically
+        latest_doc_id = f"{institution_id}_latest"
+        try:
+            firebase_service.db.collection('timetables').document(latest_doc_id).delete()
+            deleted_count += 1
+        except:
+            pass
         
-        firebase_service.db.collection('institutions').document(institution_id).set(institution_data)
+        # Reset institution timetable count
+        try:
+            institution_doc = firebase_service.db.collection('institutions').document(institution_id).get()
+            if institution_doc.exists:
+                institution_data = institution_doc.to_dict()
+                institution_data["total_timetables_generated"] = 0
+                institution_data["last_timetable_generated"] = None
+                institution_data["updated_at"] = datetime.now(pytz.timezone('Asia/Kolkata')).isoformat()
+                firebase_service.db.collection('institutions').document(institution_id).set(institution_data)
+        except Exception as e:
+            print(f"Error updating institution stats: {e}")
         
         return {
             "message": f"Successfully deleted {deleted_count} timetables for institution {institution_id}",
