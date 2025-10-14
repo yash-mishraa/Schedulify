@@ -3,7 +3,7 @@ from typing import List, Dict, Any
 import asyncio
 from datetime import datetime
 import pytz
-
+from ..utils.export_utils import ExportUtils
 from ..models.timetable import TimetableRequest, TimetableResponse
 from ..services.genetic_algorithm import GeneticTimetableOptimizer, Course
 from ..services.firebase_service import get_firebase_service
@@ -182,12 +182,23 @@ async def export_timetable(
     """Export timetable to Excel or PDF"""
     try:
         firebase_service = get_firebase_service()
-        export_utils = get_export_utils()
+        export_utils = ExportUtils()
         
-        timetable = await firebase_service.get_timetable(institution_id)
-        
-        if not timetable:
-            raise HTTPException(status_code=404, detail="Timetable not found")
+        # Get latest timetable for this institution
+        if firebase_service.db:
+            query = (firebase_service.db.collection('timetables')
+                    .where('institution_id', '==', institution_id)
+                    .order_by('created_at', direction=firestore.Query.DESCENDING)
+                    .limit(1))
+            
+            docs = list(query.stream())
+            if not docs:
+                raise HTTPException(status_code=404, detail="No timetable found for this institution")
+            
+            timetable_data = docs[0].to_dict()
+        else:
+            # Fallback for when Firebase is not available
+            raise HTTPException(status_code=503, detail="Database service unavailable")
         
         # Get IST date for filename
         ist_timezone = pytz.timezone('Asia/Kolkata')
@@ -195,26 +206,30 @@ async def export_timetable(
         date_str = current_ist.strftime('%Y%m%d_%H%M')
         
         if format.lower() == "xlsx":
-            file_content = export_utils.export_to_excel(timetable)
+            file_content = export_utils.export_to_excel(timetable_data)
             media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             filename = f"timetable_{institution_id}_{date_str}.xlsx"
         elif format.lower() == "pdf":
-            file_content = export_utils.export_to_pdf(timetable)
+            file_content = export_utils.export_to_pdf(timetable_data)
             media_type = "application/pdf"
             filename = f"timetable_{institution_id}_{date_str}.pdf"
         else:
-            raise HTTPException(status_code=400, detail="Unsupported export format")
+            raise HTTPException(status_code=400, detail="Unsupported export format. Use 'xlsx' or 'pdf'.")
         
         from fastapi.responses import Response
         return Response(
             content=file_content,
             media_type=media_type,
-            headers={"Content-Disposition": f"attachment; filename={filename}"}
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}",
+                "Content-Length": str(len(file_content))
+            }
         )
         
     except HTTPException:
         raise
     except Exception as e:
+        print(f"Export error: {e}")
         raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
 
 @router.post("/validate")
