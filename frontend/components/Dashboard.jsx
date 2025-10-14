@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/Button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Calendar, Clock, Users, Building2, TrendingUp, Sparkles, Zap, Shield, Plus, Trash2, History } from 'lucide-react';
+import { Calendar, Clock, Users, Building2, TrendingUp, Sparkles, Zap, Shield, Plus, Trash2, History, ArrowLeft, Edit3 } from 'lucide-react';
 import TimetableGenerator from './TimetableGenerator';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -17,19 +17,29 @@ const Dashboard = () => {
   const [showGenerator, setShowGenerator] = useState(false);
   const [loading, setLoading] = useState(false);
   const [existingInstitutions, setExistingInstitutions] = useState([]);
+  const [storedInputs, setStoredInputs] = useState(null);
 
   useEffect(() => {
-    loadStoredInstitution(); // Renamed to avoid conflict
+    loadStoredInstitution();
     loadRecentInstitutions();
   }, []);
 
-  const loadStoredInstitution = async () => { // Renamed function
+  const loadStoredInstitution = async () => {
     const storedId = localStorage.getItem('institutionId');
     const storedName = localStorage.getItem('institutionName');
+    const storedFormData = localStorage.getItem('lastFormData');
     
     if (storedId && storedName) {
       setInstitutionId(storedId);
       setInstitutionName(storedName);
+      
+      if (storedFormData) {
+        try {
+          setStoredInputs(JSON.parse(storedFormData));
+        } catch (e) {
+          console.error('Error parsing stored form data:', e);
+        }
+      }
       
       // Verify institution exists in backend
       try {
@@ -40,15 +50,17 @@ const Dashboard = () => {
         // Clear invalid data
         localStorage.removeItem('institutionId');
         localStorage.removeItem('institutionName');
+        localStorage.removeItem('lastFormData');
         setInstitutionId('');
         setInstitutionName('');
+        setStoredInputs(null);
       }
     }
   };
 
   const loadRecentInstitutions = () => {
     const recent = JSON.parse(localStorage.getItem('recentInstitutions') || '[]');
-    setExistingInstitutions(recent.slice(0, 5)); // Show last 5
+    setExistingInstitutions(recent.slice(0, 5));
   };
 
   const createNewInstitution = async () => {
@@ -81,6 +93,7 @@ const Dashboard = () => {
       setInstitutionId(newInstitution.id);
       setInstitutionData(newInstitution);
       setExistingInstitutions(updatedRecent.slice(0, 5));
+      setStoredInputs(null); // Clear any previous inputs
       
       toast.success('Institution created successfully!');
       setShowGenerator(true);
@@ -92,18 +105,33 @@ const Dashboard = () => {
     }
   };
 
-  const selectExistingInstitution = async (instId, instName) => { // Renamed function
+  const selectExistingInstitution = async (instId, instName) => {
     try {
       setLoading(true);
       const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/institutions/${instId}`);
       
+      // Load stored form data for this institution
+      const storedFormData = localStorage.getItem(`formData_${instId}`);
+      let institutionInputs = null;
+      if (storedFormData) {
+        try {
+          institutionInputs = JSON.parse(storedFormData);
+        } catch (e) {
+          console.error('Error parsing stored form data:', e);
+        }
+      }
+      
       // Save to localStorage
       localStorage.setItem('institutionId', instId);
       localStorage.setItem('institutionName', instName);
+      if (institutionInputs) {
+        localStorage.setItem('lastFormData', JSON.stringify(institutionInputs));
+      }
       
       setInstitutionId(instId);
       setInstitutionName(instName);
       setInstitutionData(response.data);
+      setStoredInputs(institutionInputs);
       setShowGenerator(true);
       
       toast.success(`Loaded ${instName}`);
@@ -115,7 +143,9 @@ const Dashboard = () => {
     }
   };
 
-  const deleteInstitution = async (instId, instName) => {
+  const deleteInstitution = async (instId, instName, event) => {
+    event.stopPropagation(); // Prevent triggering selectExistingInstitution
+    
     if (!confirm(`Are you sure you want to delete "${instName}" and all its timetables?`)) {
       return;
     }
@@ -130,13 +160,18 @@ const Dashboard = () => {
       localStorage.setItem('recentInstitutions', JSON.stringify(updatedRecent));
       setExistingInstitutions(updatedRecent.slice(0, 5));
       
+      // Remove stored form data for this institution
+      localStorage.removeItem(`formData_${instId}`);
+      
       // If this was the current institution, clear it
       if (institutionId === instId) {
         localStorage.removeItem('institutionId');
         localStorage.removeItem('institutionName');
+        localStorage.removeItem('lastFormData');
         setInstitutionId('');
         setInstitutionName('');
         setInstitutionData(null);
+        setStoredInputs(null);
         setShowGenerator(false);
       }
       
@@ -149,8 +184,37 @@ const Dashboard = () => {
     }
   };
 
+  const goBackToSelection = () => {
+    setShowGenerator(false);
+    setInstitutionId('');
+    setInstitutionName('');
+    setInstitutionData(null);
+    setStoredInputs(null);
+    // Don't clear localStorage, just hide the generator
+  };
+
   if (showGenerator) {
-    return <TimetableGenerator institutionId={institutionId} institutionData={institutionData} />;
+    return (
+      <div>
+        {/* Back Button */}
+        <div className="container mx-auto px-6 pt-6">
+          <Button
+            onClick={goBackToSelection}
+            variant="outline"
+            className="mb-4"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Institution Selection
+          </Button>
+        </div>
+        
+        <TimetableGenerator 
+          institutionId={institutionId} 
+          institutionData={institutionData}
+          initialInputs={storedInputs}
+        />
+      </div>
+    );
   }
 
   return (
@@ -291,7 +355,11 @@ const Dashboard = () => {
             {existingInstitutions.length > 0 ? (
               <div className="space-y-3">
                 {existingInstitutions.map((institution) => (
-                  <div key={institution.id} className="bg-white/10 rounded-lg p-4 flex items-center justify-between">
+                  <div 
+                    key={institution.id} 
+                    className="bg-white/10 rounded-lg p-4 flex items-center justify-between hover:bg-white/15 transition-all duration-200 cursor-pointer"
+                    onClick={() => selectExistingInstitution(institution.id, institution.name)}
+                  >
                     <div>
                       <h3 className="text-white font-medium">{institution.name}</h3>
                       <p className="text-white/60 text-xs">
@@ -300,7 +368,10 @@ const Dashboard = () => {
                     </div>
                     <div className="flex space-x-2">
                       <Button
-                        onClick={() => selectExistingInstitution(institution.id, institution.name)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          selectExistingInstitution(institution.id, institution.name);
+                        }}
                         variant="secondary"
                         size="sm"
                         disabled={loading}
@@ -308,10 +379,11 @@ const Dashboard = () => {
                         Load
                       </Button>
                       <Button
-                        onClick={() => deleteInstitution(institution.id, institution.name)}
+                        onClick={(e) => deleteInstitution(institution.id, institution.name, e)}
                         variant="outline"  
                         size="sm"
                         disabled={loading}
+                        className="hover:bg-red-500/20 hover:border-red-400"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -330,16 +402,20 @@ const Dashboard = () => {
         </div>
 
         {/* Current Institution Info */}
-        {institutionData && (
+        {institutionData && !showGenerator && (
           <div className="mt-8">
             <Card className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-green-400/30">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-white font-semibold text-lg mb-1">Current Institution</h3>
+                    <h3 className="text-white font-semibold text-lg mb-1 flex items-center">
+                      Current Institution
+                      {storedInputs && <Edit3 className="h-4 w-4 ml-2 text-green-300" />}
+                    </h3>
                     <p className="text-green-200">{institutionData.name}</p>
                     <p className="text-green-200/80 text-sm">
                       Timetables Generated: {institutionData.total_timetables_generated}
+                      {storedInputs && <span className="ml-3">• Previous inputs saved</span>}
                     </p>
                   </div>
                   <Button

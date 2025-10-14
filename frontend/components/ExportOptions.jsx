@@ -162,379 +162,345 @@ const ExportOptions = ({ institutionId, timetableData, institutionData }) => {
   };
 
   const generateHTMLContent = (data) => {
-    const { timetable, institution_name, constraints } = data;
-    
-    // Get all days and time slots
-    const days = Object.keys(timetable || {});
-    const timeSlots = new Set();
-    
-    days.forEach(day => {
-      Object.keys(timetable[day] || {}).forEach(slot => {
-        timeSlots.add(slot);
-      });
+  const { timetable, institution_name, constraints } = data;
+  
+  // Get all days and time slots
+  const days = Object.keys(timetable || {});
+  const timeSlots = new Set();
+  
+  days.forEach(day => {
+    Object.keys(timetable[day] || {}).forEach(slot => {
+      timeSlots.add(slot);
     });
+  });
+  
+  // Add lunch slots if they're missing
+  if (constraints?.lunch_start && constraints?.lunch_end) {
+    const lunchStart = constraints.lunch_start;
+    timeSlots.add(lunchStart);
+  }
+  
+  const sortedTimeSlots = Array.from(timeSlots).sort((a, b) => {
+    const timeA = a.split(':').map(Number);
+    const timeB = b.split(':').map(Number);
+    return (timeA[0] * 60 + timeA[1]) - (timeB[0] * 60 + timeB[1]);
+  });
+  
+  const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const sortedDays = days.sort((a, b) => dayOrder.indexOf(a) - dayOrder.indexOf(b));
+  
+  let tableRows = '';
+  sortedTimeSlots.forEach(timeSlot => {
+    tableRows += `<tr>
+      <td class="time-slot">${timeSlot}</td>`;
     
-    // Add lunch slots if they're missing
-    if (constraints?.lunch_start && constraints?.lunch_end) {
-      const lunchStart = constraints.lunch_start;
-      timeSlots.add(lunchStart);
-    }
-    
-    const sortedTimeSlots = Array.from(timeSlots).sort((a, b) => {
-      const timeA = a.split(':').map(Number);
-      const timeB = b.split(':').map(Number);
-      return (timeA[0] * 60 + timeA[1]) - (timeB[0] * 60 + timeB[1]);
-    });
-    
-    const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    const sortedDays = days.sort((a, b) => dayOrder.indexOf(a) - dayOrder.indexOf(b));
-    
-    let tableRows = '';
-    sortedTimeSlots.forEach(timeSlot => {
-      tableRows += `<tr>
-        <td class="time-slot">${timeSlot}</td>`;
-      
-      sortedDays.forEach(day => {
-        if (isLunchTime(timeSlot, constraints)) {
-          tableRows += `<td class="lunch-slot">
-            <div class="class-card lunch-card">
-              <div class="lunch-icon">🍽️</div>
-              <div class="course-code">LUNCH BREAK</div>
-              <div class="time-range">${constraints.lunch_start} - ${constraints.lunch_end}</div>
+    sortedDays.forEach(day => {
+      if (isLunchTime(timeSlot, constraints)) {
+        tableRows += `<td class="lunch-slot">
+          <div class="class-card lunch-card">
+            <div class="lunch-icon">🍽️</div>
+            <div class="course-code">LUNCH BREAK</div>
+            <div class="time-range">${constraints.lunch_start} - ${constraints.lunch_end}</div>
+          </div>
+        </td>`;
+      } else {
+        const classInfo = timetable[day]?.[timeSlot];
+        if (classInfo) {
+          const courseCode = classInfo.course_code || classInfo.code || 'N/A';
+          const courseName = classInfo.course_name || classInfo.name || '';
+          const teacher = classInfo.teacher || 'N/A';
+          const room = classInfo.room || 'N/A';
+          const isLab = classInfo.type === 'lab';
+          
+          tableRows += `<td class="${isLab ? 'lab-slot' : 'lecture-slot'}">
+            <div class="class-card ${isLab ? 'lab-card' : 'lecture-card'}">
+              <div class="course-header">
+                <div class="course-code">${courseCode}</div>
+                ${isLab ? '<div class="lab-badge">LAB</div>' : ''}
+              </div>
+              ${courseName ? `<div class="course-name">${courseName}</div>` : ''}
+              <div class="teacher">${teacher}</div>
+              <div class="room">${room}</div>
             </div>
           </td>`;
         } else {
-          const classInfo = timetable[day]?.[timeSlot];
-          if (classInfo) {
-            const courseCode = classInfo.course_code || classInfo.code || 'N/A';
-            const courseName = classInfo.course_name || classInfo.name || '';
-            const teacher = classInfo.teacher || 'N/A';
-            const room = classInfo.room || 'N/A';
-            const isLab = classInfo.type === 'lab';
-            
-            tableRows += `<td class="${isLab ? 'lab-slot' : 'lecture-slot'}">
-              <div class="class-card ${isLab ? 'lab-card' : 'lecture-card'}">
-                <div class="course-header">
-                  <div class="course-code">${courseCode}</div>
-                  ${isLab ? '<div class="lab-badge">LAB</div>' : ''}
-                </div>
-                ${courseName ? `<div class="course-name">${courseName}</div>` : ''}
-                <div class="teacher">${teacher}</div>
-                <div class="room">${room}</div>
-              </div>
-            </td>`;
-          } else {
-            tableRows += `<td class="free-slot">
-              <div class="class-card free-card">
-                <div class="free-text">Free</div>
-              </div>
-            </td>`;
-          }
+          tableRows += `<td class="free-slot">
+            <div class="class-card free-card">
+              <div class="free-text">Free</div>
+            </div>
+          </td>`;
         }
-      });
-      tableRows += '</tr>';
+      }
     });
-    
-    return `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${institution_name} - Weekly Timetable</title>
-        <style>
-          * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-          }
-          
+    tableRows += '</tr>';
+  });
+  
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${institution_name} - Weekly Timetable</title>
+      <style>
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        
+        body {
+          font-family: 'Arial', sans-serif;
+          background: #f8f9fa;
+          padding: 20px;
+          color: #2c3e50;
+        }
+        
+        .container {
+          max-width: 1400px;
+          margin: 0 auto;
+          background: white;
+          border-radius: 8px;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+          overflow: hidden;
+        }
+        
+        .header {
+          background: #2c3e50;
+          color: white;
+          padding: 30px;
+          text-align: center;
+        }
+        
+        .institution-name {
+          font-size: 2em;
+          font-weight: 600;
+          margin-bottom: 8px;
+        }
+        
+        .subtitle {
+          font-size: 1.1em;
+          opacity: 0.9;
+          font-weight: 300;
+        }
+        
+        .timetable-container {
+          padding: 20px;
+          overflow-x: auto;
+        }
+        
+        .timetable {
+          width: 100%;
+          border-collapse: collapse;
+          border: 2px solid #34495e;
+        }
+        
+        .timetable th {
+          background: #34495e;
+          color: white;
+          padding: 15px 10px;
+          font-weight: 600;
+          text-align: center;
+          border: 1px solid #2c3e50;
+          font-size: 0.95em;
+        }
+        
+        .timetable td {
+          border: 1px solid #bdc3c7;
+          padding: 0;
+          vertical-align: top;
+          height: 80px;
+        }
+        
+        .time-slot {
+          background: #ecf0f1;
+          color: #2c3e50;
+          font-weight: 600;
+          text-align: center;
+          padding: 15px 10px !important;
+          width: 100px;
+          border: 1px solid #bdc3c7;
+        }
+        
+        .class-card {
+          height: 100%;
+          padding: 8px;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          text-align: center;
+          border: none;
+          margin: 0;
+        }
+        
+        .lecture-card {
+          background: #ffffff;
+          color: #2c3e50;
+        }
+        
+        .lab-card {
+          background: #f8f9fa;
+          color: #2c3e50;
+          border-left: 4px solid #3498db;
+        }
+        
+        .lunch-card {
+          background: #fff3cd;
+          color: #856404;
+          border-left: 4px solid #ffc107;
+        }
+        
+        .free-card {
+          background: #f8f9fa;
+          color: #6c757d;
+          font-style: italic;
+        }
+        
+        .course-header {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 4px;
+          gap: 6px;
+        }
+        
+        .course-code {
+          font-weight: 700;
+          font-size: 0.9em;
+        }
+        
+        .course-name {
+          font-size: 0.75em;
+          opacity: 0.8;
+          margin-bottom: 3px;
+          font-style: italic;
+        }
+        
+        .teacher {
+          font-weight: 500;
+          margin-bottom: 2px;
+          font-size: 0.8em;
+        }
+        
+        .room {
+          font-size: 0.75em;
+          opacity: 0.7;
+        }
+        
+        .lab-badge {
+          background: #3498db;
+          color: white;
+          padding: 1px 6px;
+          border-radius: 3px;
+          font-size: 0.65em;
+          font-weight: 600;
+        }
+        
+        .lunch-icon {
+          font-size: 1.2em;
+          margin-bottom: 4px;
+        }
+        
+        .time-range {
+          font-size: 0.75em;
+          opacity: 0.8;
+          margin-top: 2px;
+        }
+        
+        .free-text {
+          font-size: 0.85em;
+          color: #95a5a6;
+        }
+        
+        @media print {
           body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 20px;
-            min-height: 100vh;
+            background: white;
+            padding: 10px;
           }
           
           .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
-            overflow: hidden;
+            box-shadow: none;
+            border-radius: 0;
           }
           
           .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 40px;
-            text-align: center;
-            position: relative;
-          }
-          
-          .header::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
-            opacity: 0.3;
-          }
-          
-          .header-content {
-            position: relative;
-            z-index: 1;
-          }
-          
-          .institution-name {
-            font-size: 2.5em;
-            font-weight: 700;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-          }
-          
-          .subtitle {
-            font-size: 1.2em;
-            opacity: 0.9;
-            font-weight: 300;
-          }
-          
-          .timetable-container {
-            padding: 30px;
-            overflow-x: auto;
-          }
-          
-          .timetable {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 8px;
-            margin-top: 20px;
+            background: #2c3e50 !important;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
           }
           
           .timetable th {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            color: white;
-            padding: 20px 15px;
-            font-weight: 600;
-            text-align: center;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.3);
-            position: relative;
-            font-size: 1.1em;
-          }
-          
-          .timetable th:first-child {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-          }
-          
-          .timetable td {
-            padding: 8px;
-            vertical-align: top;
-            position: relative;
+            background: #34495e !important;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
           }
           
           .time-slot {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            color: white;
-            font-weight: 600;
-            text-align: center;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(240, 147, 251, 0.3);
-            font-size: 1.1em;
-            padding: 20px 15px !important;
-          }
-          
-          .class-card {
-            border-radius: 12px;
-            padding: 15px;
-            text-align: center;
-            min-height: 120px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-          }
-          
-          .class-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, rgba(255,255,255,0.3), rgba(255,255,255,0.1), rgba(255,255,255,0.3));
-          }
-          
-          .lecture-card {
-            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
-            color: #2d3748;
-            border-left: 5px solid #38b2ac;
+            background: #ecf0f1 !important;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
           }
           
           .lab-card {
-            background: linear-gradient(135deg, #d299c2 0%, #fef9d7 100%);
-            color: #2d3748;
-            border-left: 5px solid #805ad5;
+            border-left: 4px solid #3498db !important;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
           }
           
           .lunch-card {
-            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
-            color: #744210;
-            border-left: 5px solid #ed8936;
+            background: #fff3cd !important;
+            border-left: 4px solid #ffc107 !important;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+          }
+        }
+        
+        @media (max-width: 768px) {
+          .header {
+            padding: 20px;
           }
           
-          .free-card {
-            background: linear-gradient(135deg, #e2e8f0 0%, #f7fafc 100%);
-            color: #718096;
-            border-left: 5px solid #cbd5e0;
-          }
-          
-          .course-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 8px;
-          }
-          
-          .course-code {
-            font-weight: 700;
-            font-size: 1.1em;
-            color: inherit;
-          }
-          
-          .course-name {
-            font-size: 0.85em;
-            opacity: 0.8;
-            margin-bottom: 6px;
-            font-style: italic;
-          }
-          
-          .teacher {
-            font-weight: 600;
-            margin-bottom: 4px;
-            font-size: 0.9em;
-          }
-          
-          .room {
-            font-size: 0.8em;
-            opacity: 0.8;
-          }
-          
-          .lab-badge {
-            background: #805ad5;
-            color: white;
-            padding: 2px 8px;
-            border-radius: 20px;
-            font-size: 0.7em;
-            font-weight: 600;
-          }
-          
-          .lunch-icon {
+          .institution-name {
             font-size: 1.5em;
-            margin-bottom: 8px;
           }
           
-          .time-range {
-            font-size: 0.8em;
-            opacity: 0.8;
-            margin-top: 4px;
+          .timetable-container {
+            padding: 10px;
           }
-          
-          .free-text {
-            font-style: italic;
-            font-size: 0.9em;
-          }
-          
-          @media print {
-            body {
-              background: white;
-              padding: 0;
-            }
-            
-            .container {
-              box-shadow: none;
-              border-radius: 0;
-            }
-            
-            .header {
-              background: #667eea !important;
-              -webkit-print-color-adjust: exact;
-              color-adjust: exact;
-            }
-            
-            .class-card {
-              box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-              -webkit-print-color-adjust: exact;
-              color-adjust: exact;
-            }
-            
-            .timetable th, .time-slot {
-              -webkit-print-color-adjust: exact;
-              color-adjust: exact;
-            }
-          }
-          
-          @media (max-width: 768px) {
-            .header {
-              padding: 20px;
-            }
-            
-            .institution-name {
-              font-size: 1.8em;
-            }
-            
-            .timetable-container {
-              padding: 15px;
-            }
-            
-            .class-card {
-              min-height: 100px;
-              padding: 10px;
-            }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <div class="header-content">
-              <div class="institution-name">${institution_name}</div>
-              <div class="subtitle">Weekly Timetable</div>
-            </div>
-          </div>
-          
-          <div class="timetable-container">
-            <table class="timetable">
-              <thead>
-                <tr>
-                  <th>Time / Day</th>
-                  ${sortedDays.map(day => `<th>${day}</th>`).join('')}
-                </tr>
-              </thead>
-              <tbody>
-                ${tableRows}
-              </tbody>
-            </table>
-          </div>
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <div class="institution-name">${institution_name}</div>
+          <div class="subtitle">Weekly Timetable</div>
         </div>
         
-        <script>
-          // Auto-print after 1 second
-          setTimeout(() => {
-            window.print();
-          }, 1000);
-        </script>
-      </body>
-      </html>
-    `;
-  };
+        <div class="timetable-container">
+          <table class="timetable">
+            <thead>
+              <tr>
+                <th>Time / Day</th>
+                ${sortedDays.map(day => `<th>${day}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRows}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <script>
+        setTimeout(() => {
+          window.print();
+        }, 1000);
+      </script>
+    </body>
+    </html>
+  `;
+};
 
   // Extract timetable statistics
   const getExportStats = () => {

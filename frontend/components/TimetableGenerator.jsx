@@ -11,7 +11,7 @@ import InputForm from './InputForm';
 import TimetableDisplay from './TimetableDisplay';
 import ExportOptions from './ExportOptions';
 
-const TimetableGenerator = ({ institutionId, institutionData }) => {
+const TimetableGenerator = ({ institutionId, institutionData, initialInputs }) => {
   const [timetableData, setTimetableData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -25,6 +25,11 @@ const TimetableGenerator = ({ institutionId, institutionData }) => {
   useEffect(() => {
     checkApiConnection();
     
+    // Load initial inputs if provided
+    if (initialInputs) {
+      setSavedFormData(initialInputs);
+    }
+    
     const keepAliveInterval = setInterval(() => {
       if (apiStatus === 'connected') {
         pingBackend();
@@ -32,7 +37,7 @@ const TimetableGenerator = ({ institutionId, institutionData }) => {
     }, 14 * 60 * 1000);
 
     return () => clearInterval(keepAliveInterval);
-  }, [apiStatus]);
+  }, [apiStatus, initialInputs]);
 
   const pingBackend = async () => {
     try {
@@ -90,13 +95,17 @@ const TimetableGenerator = ({ institutionId, institutionData }) => {
     }
   };
 
-  const handleGenerateTimetable = async (formData) => {
+const handleGenerateTimetable = async (formData) => {
     if (apiStatus !== 'connected') {
       toast.error('Backend server is not accessible. Please check connection first.');
       return;
     }
 
     setSavedFormData(formData);
+    
+    // Save form data for this specific institution
+    localStorage.setItem(`formData_${institutionId}`, JSON.stringify(formData));
+    localStorage.setItem('lastFormData', JSON.stringify(formData));
 
     setLoading(true);
     setError('');
