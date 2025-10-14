@@ -105,76 +105,85 @@ const InputForm = ({ onSubmit, loading, validationResults, initialData }) => {
         </div>
       )}
 
-      {/* Institution Settings Section */}
-      <div className="space-y-0">
-        <div className="glass-section-header">
-          <h3 className="section-title">
-            <Settings className="h-5 w-5 mr-2" />
-            Institution Settings
-          </h3>
-        </div>
-        <div className="content-area space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label className="text-label">Start Time</Label>
-              <Input
-                type="time"
-                className="glass-input"
-                value={formData.start_time}
-                onChange={(e) => setFormData({...formData, start_time: e.target.value})}
-              />
-            </div>
-            <div>
-              <Label className="text-label">End Time</Label>
-              <Input
-                type="time"
-                className="glass-input"
-                value={formData.end_time}
-                onChange={(e) => setFormData({...formData, end_time: e.target.value})}
-              />
-            </div>
-            <div>
-              <Label className="text-label">Lecture Duration (minutes)</Label>
-              <select 
-                className="glass-select"
-                value={formData.lecture_duration}
-                onChange={(e) => setFormData({...formData, lecture_duration: parseInt(e.target.value)})}
-              >
-                <option value="30" className="bg-slate-800 text-white">30 minutes</option>
-                <option value="35" className="bg-slate-800 text-white">35 minutes</option>
-                <option value="40" className="bg-slate-800 text-white">40 minutes</option>
-                <option value="45" className="bg-slate-800 text-white">45 minutes</option>
-                <option value="50" className="bg-slate-800 text-white">50 minutes</option>
-                <option value="55" className="bg-slate-800 text-white">55 minutes</option>
-                <option value="60" className="bg-slate-800 text-white">60 minutes</option>
-                <option value="75" className="bg-slate-800 text-white">75 minutes</option>
-                <option value="90" className="bg-slate-800 text-white">90 minutes</option>
-              </select>
-            </div>
+      {/* Institution Settings Section - Professional Layout */}
+<div className="space-y-0">
+  <div className="glass-section-header">
+    <h3 className="section-title">
+      <Settings className="h-5 w-5 mr-2" />
+      Institution Settings
+    </h3>
+  </div>
+  <div className="content-area">
+    {/* Time Settings */}
+    <div className="space-y-6">
+      <div>
+        <h4 className="text-white/90 font-medium mb-4">Class Timings</h4>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="space-y-2">
+            <Label className="text-label">Start Time</Label>
+            <Input
+              type="time"
+              className="glass-input"
+              value={formData.start_time}
+              onChange={(e) => setFormData({...formData, start_time: e.target.value})}
+            />
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label className="text-label">Lunch Start Time</Label>
-              <Input
-                type="time"
-                className="glass-input"
-                value={formData.lunch_start}
-                onChange={(e) => setFormData({...formData, lunch_start: e.target.value})}
-              />
-            </div>
-            <div>
-              <Label className="text-label">Lunch End Time</Label>
-              <Input
-                type="time"
-                className="glass-input"
-                value={formData.lunch_end}
-                onChange={(e) => setFormData({...formData, lunch_end: e.target.value})}
-              />
-            </div>
+          <div className="space-y-2">
+            <Label className="text-label">End Time</Label>
+            <Input
+              type="time"
+              className="glass-input"
+              value={formData.end_time}
+              onChange={(e) => setFormData({...formData, end_time: e.target.value})}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-label">Lecture Duration (minutes)</Label>
+            <select 
+              className="glass-select w-full"
+              value={formData.lecture_duration}
+              onChange={(e) => setFormData({...formData, lecture_duration: parseInt(e.target.value)})}
+            >
+              <option value="30" className="bg-slate-800 text-white">30 minutes</option>
+              <option value="35" className="bg-slate-800 text-white">35 minutes</option>
+              <option value="40" className="bg-slate-800 text-white">40 minutes</option>
+              <option value="45" className="bg-slate-800 text-white">45 minutes</option>
+              <option value="50" className="bg-slate-800 text-white">50 minutes</option>
+              <option value="55" className="bg-slate-800 text-white">55 minutes</option>
+              <option value="60" className="bg-slate-800 text-white">60 minutes</option>
+              <option value="75" className="bg-slate-800 text-white">75 minutes</option>
+              <option value="90" className="bg-slate-800 text-white">90 minutes</option>
+            </select>
           </div>
         </div>
       </div>
+
+      <div>
+        <h4 className="text-white/90 font-medium mb-4">Lunch Break</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <Label className="text-label">Lunch Start Time</Label>
+            <Input
+              type="time"
+              className="glass-input"
+              value={formData.lunch_start}
+              onChange={(e) => setFormData({...formData, lunch_start: e.target.value})}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-label">Lunch End Time</Label>
+            <Input
+              type="time"
+              className="glass-input"
+              value={formData.lunch_end}
+              onChange={(e) => setFormData({...formData, lunch_end: e.target.value})}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
       {/* Working Days Section */}
       <div className="space-y-0">

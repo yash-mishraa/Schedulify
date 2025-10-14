@@ -1,11 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/Button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import { Alert, AlertDescription } from './ui/alert';
 import { Loader2, RefreshCw, AlertCircle, CheckCircle, XCircle, Edit3 } from 'lucide-react';
+import { Button } from './ui/Button';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
@@ -13,7 +12,7 @@ import InputForm from './InputForm';
 import TimetableDisplay from './TimetableDisplay';
 import ExportOptions from './ExportOptions';
 
-const TimetableGenerator = ({ institutionId }) => {
+const TimetableGenerator = ({ institutionId, institutionData }) => {
   const [timetableData, setTimetableData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -21,7 +20,7 @@ const TimetableGenerator = ({ institutionId }) => {
   const [activeTab, setActiveTab] = useState('input');
   const [apiStatus, setApiStatus] = useState('checking');
   const [lastPing, setLastPing] = useState(null);
-  const [savedFormData, setSavedFormData] = useState(null); // Store form data for editing
+  const [savedFormData, setSavedFormData] = useState(null);
 
   // Check API connection on component mount
   useEffect(() => {
@@ -98,7 +97,6 @@ const TimetableGenerator = ({ institutionId }) => {
       return;
     }
 
-    // Save form data for future editing
     setSavedFormData(formData);
 
     setLoading(true);
@@ -130,7 +128,6 @@ const TimetableGenerator = ({ institutionId }) => {
         { timeout: 300000 }
       );
 
-      // Add constraints to the response data for lunch break display
       const enhancedData = {
         ...response.data,
         constraints: {
@@ -166,7 +163,6 @@ const TimetableGenerator = ({ institutionId }) => {
     }
   };
 
-  // Handle edit functionality
   const handleEditTimetable = () => {
     setActiveTab('input');
     toast.success('Switched to edit mode. Modify your settings and regenerate.');
@@ -175,11 +171,11 @@ const TimetableGenerator = ({ institutionId }) => {
   const getStatusIcon = () => {
     switch (apiStatus) {
       case 'connected':
-        return <CheckCircle className="h-5 w-5 text-green-600" />;
+        return <CheckCircle className="h-4 w-4 text-green-400" />;
       case 'disconnected':
-        return <XCircle className="h-5 w-5 text-red-600" />;
+        return <XCircle className="h-4 w-4 text-red-400" />;
       default:
-        return <Loader2 className="h-5 w-5 animate-spin text-yellow-600" />;
+        return <Loader2 className="h-4 w-4 animate-spin text-yellow-400" />;
     }
   };
 
@@ -195,133 +191,141 @@ const TimetableGenerator = ({ institutionId }) => {
   };
 
   const getStatusColor = () => {
-  switch (apiStatus) {
-    case 'connected':
-      return 'status-connected';
-    case 'disconnected':
-      return 'status-disconnected';
-    default:
-      return 'status-checking';
-  }
-};
+    switch (apiStatus) {
+      case 'connected':
+        return 'bg-green-500/20 border-green-400/40 text-green-100';
+      case 'disconnected':
+        return 'bg-red-500/20 border-red-400/40 text-red-100';
+      default:
+        return 'bg-yellow-500/20 border-yellow-400/40 text-yellow-100';
+    }
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="text-center">
-        <h1 className="text-4xl font-bold text-gray-900 mb-2">Schedulify</h1>
-        <p className="text-xl text-gray-600">AI-Powered Automatic Timetable Generator</p>
+        <h1 className="text-4xl font-bold gradient-text mb-2">Schedulify</h1>
+        <p className="text-xl text-white/80">AI-Powered Automatic Timetable Generator</p>
       </div>
 
-      {/* API Status Card */}
-      <Card className="mb-6">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              {getStatusIcon()}
-              <span className={`px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm ${getStatusColor()}`}>
-  {getStatusText()}
-</span>
+      {/* Connection Status - Moved to separate line without glass */}
+      <div className="flex items-center justify-between bg-slate-800/40 backdrop-blur-sm border border-white/20 rounded-lg p-4">
+        <div className="flex items-center space-x-3">
+          {getStatusIcon()}
+          <span className={`px-3 py-1 rounded-lg text-sm font-medium border backdrop-blur-sm ${getStatusColor()}`}>
+            {getStatusText()}
+          </span>
+        </div>
+        <div className="flex space-x-2">
+          <Button
+            onClick={checkApiConnection}
+            variant="outline"
+            size="sm"
+            disabled={apiStatus === 'checking'}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${apiStatus === 'checking' ? 'animate-spin' : ''}`} />
+            Check Connection
+          </Button>
+          {apiStatus === 'disconnected' && (
+            <Button
+              onClick={() => {
+                window.open(`${process.env.NEXT_PUBLIC_API_URL}/health`, '_blank');
+                setTimeout(() => checkApiConnection(), 5000);
+              }}
+              variant="default"
+              size="sm"
+            >
+              Wake Up Backend
+            </Button>
+          )}
+        </div>
+      </div>
 
-            </div>
-            <div className="flex space-x-2">
-              <Button
-  onClick={checkApiConnection}
-  variant="outline"
-  size="sm"
-  disabled={apiStatus === 'checking'}
->
-  <RefreshCw className={`h-4 w-4 mr-2 ${apiStatus === 'checking' ? 'animate-spin' : ''}`} />
-  Check Connection
-</Button>
-
-{apiStatus === 'disconnected' && (
-  <Button
-    onClick={() => {
-      window.open(`${process.env.NEXT_PUBLIC_API_URL}/health`, '_blank');
-      setTimeout(() => checkApiConnection(), 5000);
-    }}
-    variant="default"
-    size="sm"
-  >
-    Wake Up Backend
-  </Button>
-)}
+      {/* Error Display - Improved Readability */}
+      {error && (
+        <div className="bg-red-500/20 border border-red-400/50 rounded-lg p-4 backdrop-blur-sm">
+          <div className="flex items-start space-x-3">
+            <AlertCircle className="h-5 w-5 text-red-300 mt-0.5 flex-shrink-0" />
+            <div>
+              <h4 className="text-red-200 font-semibold mb-1">Connection Error</h4>
+              <p className="text-red-100 text-sm">{error}</p>
             </div>
           </div>
-          {apiStatus === 'disconnected' && (
-  <div className="mt-3 p-4 bg-white/10 border border-white/20 rounded-lg backdrop-blur-sm">
-    <p className="text-white font-medium mb-2">Backend URL: <span className="font-mono text-blue-200">{process.env.NEXT_PUBLIC_API_URL}</span></p>
-    <p className="text-white/80 text-sm">
-      🔧 <strong className="text-purple-200">Quick Fix:</strong> Click "Wake Up Backend" button above, wait 30 seconds, then click "Check Connection"
-    </p>
-    <p className="text-white/70 text-xs mt-2">
-      Free tier backends sleep after 15 minutes of inactivity. This is normal behavior.
-    </p>
-  </div>
-)}
-        </CardContent>
-      </Card>
-
-      {error && (
-        <Alert variant="destructive" className="mb-6">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        </div>
       )}
 
+      {/* Validation Results - Improved Readability */}
       {validationResults && (
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="text-lg">Validation Results</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {validationResults.errors?.length > 0 && (
-              <div className="mb-4">
-                <h4 className="text-red-600 font-semibold mb-2 flex items-center">
-                  <XCircle className="h-4 w-4 mr-2" />
-                  Errors:
-                </h4>
-                <ul className="list-disc list-inside text-red-600 space-y-1 ml-6">
-                  {validationResults.errors.map((error, index) => (
-                    <li key={index}>{error}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {validationResults.warnings?.length > 0 && (
-              <div>
-                <h4 className="text-yellow-600 font-semibold mb-2 flex items-center">
-                  <AlertCircle className="h-4 w-4 mr-2" />
-                  Warnings:
-                </h4>
-                <ul className="list-disc list-inside text-yellow-600 space-y-1 ml-6">
-                  {validationResults.warnings.map((warning, index) => (
-                    <li key={index}>{warning}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {validationResults.is_valid && (
-              <div className="text-green-600 flex items-center">
-                <CheckCircle className="h-4 w-4 mr-2" />
+        <div className="space-y-4">
+          {validationResults.errors?.length > 0 && (
+            <div className="bg-red-500/20 border border-red-400/50 rounded-lg p-4 backdrop-blur-sm">
+              <h4 className="text-red-200 font-semibold mb-3 flex items-center">
+                <XCircle className="h-4 w-4 mr-2" />
+                Validation Errors:
+              </h4>
+              <ul className="space-y-2">
+                {validationResults.errors.map((error, index) => (
+                  <li key={index} className="text-red-100 text-sm flex items-start">
+                    <span className="w-2 h-2 bg-red-400 rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                    {error}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          
+          {validationResults.warnings?.length > 0 && (
+            <div className="bg-yellow-500/20 border border-yellow-400/50 rounded-lg p-4 backdrop-blur-sm">
+              <h4 className="text-yellow-200 font-semibold mb-3 flex items-center">
+                <AlertCircle className="h-4 w-4 mr-2" />
+                Warnings:
+              </h4>
+              <ul className="space-y-2">
+                {validationResults.warnings.map((warning, index) => (
+                  <li key={index} className="text-yellow-100 text-sm flex items-start">
+                    <span className="w-2 h-2 bg-yellow-400 rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                    {warning}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          
+          {validationResults.is_valid && (
+            <div className="bg-green-500/20 border border-green-400/50 rounded-lg p-4 backdrop-blur-sm">
+              <div className="text-green-100 flex items-center">
+                <CheckCircle className="h-4 w-4 mr-2 text-green-300" />
                 All validations passed! Ready to generate timetable.
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          )}
+        </div>
       )}
 
+      {/* Main Tabs - Improved Styling */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="input">
+        <TabsList className="bg-slate-800/60 backdrop-blur-sm rounded-xl p-1 border border-white/20 grid w-full grid-cols-3">
+          <TabsTrigger 
+            value="input" 
+            className="text-white/80 data-[state=active]:bg-white/20 data-[state=active]:text-white rounded-lg font-medium"
+          >
             <div className="flex items-center space-x-2">
               <span>Input Configuration</span>
               {timetableData && <Edit3 className="h-4 w-4" />}
             </div>
           </TabsTrigger>
-          <TabsTrigger value="timetable" disabled={!timetableData}>
+          <TabsTrigger 
+            value="timetable" 
+            disabled={!timetableData}
+            className="text-white/80 data-[state=active]:bg-white/20 data-[state=active]:text-white rounded-lg font-medium disabled:opacity-50"
+          >
             Generated Timetable
           </TabsTrigger>
-          <TabsTrigger value="export" disabled={!timetableData}>
+          <TabsTrigger 
+            value="export" 
+            disabled={!timetableData}
+            className="text-white/80 data-[state=active]:bg-white/20 data-[state=active]:text-white rounded-lg font-medium disabled:opacity-50"
+          >
             Export Options
           </TabsTrigger>
         </TabsList>
@@ -332,7 +336,7 @@ const TimetableGenerator = ({ institutionId }) => {
             loading={loading}
             validationResults={validationResults}
             apiStatus={apiStatus}
-            initialData={savedFormData} // Pass saved data for editing
+            initialData={savedFormData}
           />
         </TabsContent>
 
@@ -356,22 +360,23 @@ const TimetableGenerator = ({ institutionId }) => {
         </TabsContent>
       </Tabs>
 
+      {/* Loading Modal - Improved */}
       {loading && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="p-8 max-w-md mx-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="glass-card p-8 max-w-md mx-4">
             <div className="text-center space-y-4">
-              <Loader2 className="h-12 w-12 animate-spin mx-auto text-blue-600" />
+              <Loader2 className="h-12 w-12 animate-spin mx-auto text-purple-400" />
               <div>
-                <h3 className="text-xl font-semibold mb-2">Generating Timetable</h3>
-                <p className="text-gray-600 mb-4">
+                <h3 className="text-xl font-semibold mb-2 text-white">Generating Timetable</h3>
+                <p className="text-white/80 mb-4">
                   Our AI is optimizing your schedule using genetic algorithms...
                 </p>
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-white/70">
                   <p>⏳ This process typically takes 2-3 minutes</p>
                 </div>
               </div>
             </div>
-          </Card>
+          </div>
         </div>
       )}
     </div>

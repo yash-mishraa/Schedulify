@@ -240,97 +240,96 @@ const TimetableDisplay = ({ data, institutionId, onEdit }) => {
         </CardContent>
       </Card>
 
-      {/* Glass Timetable */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-xl text-white">Weekly Timetable</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <div className="glass-table">
-              <table className="w-full">
-                <thead>
-                  <tr>
-                    <th className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 backdrop-blur-sm border-b border-white/20 text-white font-semibold p-4 text-left min-w-24">
-                      Time / Day
-                    </th>
-                    {sortedDays.map(day => (
-                      <th key={day} className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 backdrop-blur-sm border-b border-white/20 text-white font-semibold p-4 text-center min-w-32">
-                        {day}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedTimeSlots.map(timeSlot => (
-                    <tr key={timeSlot} className="hover:bg-white/5 transition-colors">
-                      <td className="border-b border-white/10 p-4 font-medium bg-white/5 text-center text-white">
-                        {timeSlot}
-                      </td>
-                      {sortedDays.map(day => {
-                        if (isLunchTime(timeSlot)) {
-                          return (
-                            <td key={`${day}-${timeSlot}`} className="border-b border-white/10 p-2">
-                              <div className="lunch-slot p-3 text-center">
-                                <div className="flex items-center justify-center space-x-2">
-                                  <Utensils className="h-4 w-4" />
-                                  <span className="font-bold">LUNCH</span>
-                                </div>
-                                <div className="text-xs mt-1 opacity-90">
-                                  {lunchStart} - {lunchEnd}
-                                </div>
-                              </div>
-                            </td>
-                          );
-                        }
+{/* Enhanced Timetable with Better Styling */}
+<div className="space-y-0">
+  <div className="glass-section-header">
+    <h3 className="section-title">Weekly Timetable</h3>
+  </div>
+  <div className="light-content-area p-0">
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr className="bg-gradient-to-r from-purple-600/30 to-blue-600/30 backdrop-blur-sm">
+            <th className="border-b border-white/20 text-white font-semibold p-4 text-left min-w-24">
+              Time / Day
+            </th>
+            {sortedDays.map(day => (
+              <th key={day} className="border-b border-white/20 text-white font-semibold p-4 text-center min-w-32">
+                {day}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {sortedTimeSlots.map((timeSlot, rowIndex) => (
+            <tr key={timeSlot} className="hover:bg-white/5 transition-colors">
+              <td className="border-b border-white/10 p-4 font-medium bg-slate-700/30 text-center text-white">
+                {timeSlot}
+              </td>
+              {sortedDays.map(day => {
+                if (isLunchTime(timeSlot)) {
+                  return (
+                    <td key={`${day}-${timeSlot}`} className="border-b border-white/10 p-3">
+                      <div className="bg-gradient-to-r from-orange-500/40 to-yellow-500/40 backdrop-blur-sm border-2 border-orange-300/50 text-orange-100 rounded-xl p-3 text-center">
+                        <div className="flex items-center justify-center space-x-2">
+                          <Utensils className="h-4 w-4" />
+                          <span className="font-bold">LUNCH</span>
+                        </div>
+                        <div className="text-xs mt-1 opacity-90">
+                          {lunchStart} - {lunchEnd}
+                        </div>
+                      </div>
+                    </td>
+                  );
+                }
 
-                        const classInfo = timetable[day]?.[timeSlot];
-                        return (
-                          <td key={`${day}-${timeSlot}`} className="border-b border-white/10 p-2">
-                            {classInfo ? (
-                              <div className={
-                                classInfo.type === 'lab' ? 'lab-slot p-3 text-sm' :
-                                'lecture-slot p-3 text-sm'
-                              }>
-                                <div className="font-bold text-sm mb-1">
-                                  {classInfo.course_code || classInfo.code || 'N/A'}
-                                  {classInfo.type === 'lab' && classInfo.is_consecutive && (
-                                    <span className="text-xs ml-1 bg-white/20 px-1 rounded">
-                                      {classInfo.session_part}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="text-xs mb-1 opacity-90">
-                                  {classInfo.teacher || 'No Teacher'}
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <div className="bg-white/20 backdrop-blur-sm border border-white/30 text-white px-2 py-1 rounded-full text-xs font-medium">
-                                    {classInfo.type === 'lab' ? 'Lab' : 'Lecture'}
-                                    {classInfo.type === 'lab' && classInfo.total_duration > 1 && (
-                                      <span className="ml-1">({classInfo.total_duration}p)</span>
-                                    )}
-                                  </div>
-                                  <span className="text-xs opacity-80">
-                                    {classInfo.room || 'Room 1'}
-                                  </span>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="free-slot p-3 text-center text-sm">
-                                Free
-                              </div>
+                const classInfo = timetable[day]?.[timeSlot];
+                return (
+                  <td key={`${day}-${timeSlot}`} className="border-b border-white/10 p-3">
+                    {classInfo ? (
+                      <div className={
+                        classInfo.type === 'lab' 
+                          ? 'bg-gradient-to-r from-blue-500/40 to-cyan-500/40 backdrop-blur-sm border-2 border-blue-300/50 text-blue-100 rounded-xl p-3 text-sm'
+                          : 'bg-gradient-to-r from-green-500/40 to-emerald-500/40 backdrop-blur-sm border-2 border-green-300/50 text-green-100 rounded-xl p-3 text-sm'
+                      }>
+                        <div className="font-bold text-sm mb-1">
+                          {classInfo.course_code || classInfo.code || 'N/A'}
+                          {classInfo.type === 'lab' && classInfo.is_consecutive && (
+                            <span className="text-xs ml-1 bg-white/20 px-1 rounded">
+                              {classInfo.session_part}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs mb-1 opacity-90">
+                          {classInfo.teacher || 'No Teacher'}
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="bg-white/20 backdrop-blur-sm border border-white/30 text-white px-2 py-1 rounded-full text-xs font-medium">
+                            {classInfo.type === 'lab' ? 'Lab' : 'Lecture'}
+                            {classInfo.type === 'lab' && classInfo.total_duration > 1 && (
+                              <span className="ml-1">({classInfo.total_duration}p)</span>
                             )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+                          </div>
+                          <span className="text-xs opacity-80">
+                            {classInfo.room || 'Room 1'}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-slate-600/30 backdrop-blur-sm border border-white/20 text-white/60 rounded-xl p-3 text-center text-sm">
+                        Free
+                      </div>
+                    )}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
       {/* Legend - Glass Theme */}
       <Card>
