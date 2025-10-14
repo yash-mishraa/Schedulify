@@ -1,10 +1,9 @@
 import * as React from "react"
 
-const Label = React.forwardRef(({ className = "", htmlFor, ...props }, ref) => (
+const Label = React.forwardRef(({ className = "", ...props }, ref) => (
   <label
     ref={ref}
-    htmlFor={htmlFor}
-    className={`text-sm font-medium leading-none text-gray-700 ${className}`}
+    className={`text-sm font-medium leading-none text-white/90 peer-disabled:cursor-not-allowed peer-disabled:opacity-70 ${className}`}
     {...props}
   />
 ))
