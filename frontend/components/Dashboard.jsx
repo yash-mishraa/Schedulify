@@ -18,7 +18,6 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(false);
   const [existingInstitutions, setExistingInstitutions] = useState([]);
   const [storedInputs, setStoredInputs] = useState(null);
-  const [refreshKey, setRefreshKey] = useState(0); // Force re-render key
 
   useEffect(() => {
     loadStoredInstitution();
@@ -34,7 +33,6 @@ const Dashboard = () => {
       setInstitutionId(storedId);
       setInstitutionName(storedName);
       
-      // Set institution data immediately
       const instData = {
         id: storedId,
         name: storedName,
@@ -65,7 +63,6 @@ const Dashboard = () => {
 
     setLoading(true);
     try {
-      // Generate a simple institution ID if backend fails
       const fallbackId = `inst_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       let newInstitution;
       
@@ -85,11 +82,9 @@ const Dashboard = () => {
         };
       }
       
-      // Save to localStorage
       localStorage.setItem('institutionId', newInstitution.id);
       localStorage.setItem('institutionName', newInstitution.name);
       
-      // Add to recent institutions
       const recent = JSON.parse(localStorage.getItem('recentInstitutions') || '[]');
       const updatedRecent = [
         { id: newInstitution.id, name: newInstitution.name, created_at: newInstitution.created_at },
@@ -101,7 +96,7 @@ const Dashboard = () => {
       setInstitutionData(newInstitution);
       setExistingInstitutions(updatedRecent.slice(0, 5));
       setStoredInputs(null);
-      setInstitutionName(''); // Clear the input field
+      setInstitutionName('');
       
       toast.success('Institution created successfully!');
       setShowGenerator(true);
@@ -116,7 +111,6 @@ const Dashboard = () => {
   const selectExistingInstitution = (instId, instName) => {
     setLoading(true);
     
-    // Load stored form data for this institution
     const storedFormData = localStorage.getItem(`formData_${instId}`);
     let institutionInputs = null;
     if (storedFormData) {
@@ -127,14 +121,12 @@ const Dashboard = () => {
       }
     }
     
-    // Save to localStorage
     localStorage.setItem('institutionId', instId);
     localStorage.setItem('institutionName', instName);
     if (institutionInputs) {
       localStorage.setItem('lastFormData', JSON.stringify(institutionInputs));
     }
     
-    // Set all state immediately
     const institutionDataObj = {
       id: instId,
       name: instName,
@@ -151,43 +143,6 @@ const Dashboard = () => {
     setLoading(false);
   };
 
-  const handleDeleteClick = (instId, instName) => {
-    if (!confirm(`Are you sure you want to delete "${instName}"?`)) {
-      return;
-    }
-
-    try {
-      // Remove from recent institutions
-      const recent = JSON.parse(localStorage.getItem('recentInstitutions') || '[]');
-      const updatedRecent = recent.filter(inst => inst.id !== instId);
-      localStorage.setItem('recentInstitutions', JSON.stringify(updatedRecent));
-      
-      // Update state and force re-render
-      setExistingInstitutions(updatedRecent.slice(0, 5));
-      setRefreshKey(prev => prev + 1); // Force re-render
-      
-      // Remove stored form data for this institution
-      localStorage.removeItem(`formData_${instId}`);
-      
-      // If this was the current institution, clear it
-      if (institutionId === instId) {
-        localStorage.removeItem('institutionId');
-        localStorage.removeItem('institutionName');
-        localStorage.removeItem('lastFormData');
-        setInstitutionId('');
-        setInstitutionName('');
-        setInstitutionData(null);
-        setStoredInputs(null);
-        setShowGenerator(false);
-      }
-      
-      toast.success(`${instName} deleted successfully`);
-    } catch (error) {
-      console.error('Failed to delete institution:', error);
-      toast.error('Failed to delete institution');
-    }
-  };
-
   const goBackToSelection = () => {
     setShowGenerator(false);
   };
@@ -195,7 +150,6 @@ const Dashboard = () => {
   if (showGenerator) {
     return (
       <div>
-        {/* Back Button */}
         <div className="container mx-auto px-6 pt-6">
           <Button
             onClick={goBackToSelection}
@@ -299,7 +253,7 @@ const Dashboard = () => {
           </div>
 
           {/* Recent Institutions */}
-          <div className="glass-card p-8" key={refreshKey}>
+          <div className="glass-card p-8">
             <div className="text-center mb-6">
               <h2 className="text-2xl font-bold text-white mb-2 flex items-center justify-center">
                 <History className="h-6 w-6 mr-2" />
@@ -312,7 +266,7 @@ const Dashboard = () => {
               <div className="space-y-3">
                 {existingInstitutions.map((institution) => (
                   <div 
-                    key={`${institution.id}-${refreshKey}`}
+                    key={institution.id}
                     className="bg-white/10 rounded-lg p-4 flex items-center justify-between hover:bg-white/15 transition-all duration-200"
                   >
                     <div className="flex-1">
@@ -330,15 +284,44 @@ const Dashboard = () => {
                       >
                         Load
                       </Button>
-                      <Button
-                        onClick={() => handleDeleteClick(institution.id, institution.name)}
-                        variant="outline"
-                        size="sm"
+                      <button
+                        onClick={() => {
+                          console.log('Delete clicked for:', institution.name); // Debug
+                          if (confirm(`Are you sure you want to delete "${institution.name}"?`)) {
+                            console.log('User confirmed delete'); // Debug
+                            
+                            // Remove from localStorage
+                            const recent = JSON.parse(localStorage.getItem('recentInstitutions') || '[]');
+                            const updated = recent.filter(inst => inst.id !== institution.id);
+                            localStorage.setItem('recentInstitutions', JSON.stringify(updated));
+                            
+                            // Update state
+                            setExistingInstitutions(updated.slice(0, 5));
+                            
+                            // Clean up related data
+                            localStorage.removeItem(`formData_${institution.id}`);
+                            
+                            // If current institution, clear it
+                            if (institutionId === institution.id) {
+                              localStorage.removeItem('institutionId');
+                              localStorage.removeItem('institutionName');
+                              localStorage.removeItem('lastFormData');
+                              setInstitutionId('');
+                              setInstitutionName('');
+                              setInstitutionData(null);
+                              setStoredInputs(null);
+                              setShowGenerator(false);
+                            }
+                            
+                            toast.success(`${institution.name} deleted successfully`);
+                            console.log('Delete completed'); // Debug
+                          }
+                        }}
+                        className="bg-transparent hover:bg-red-500/20 text-white/90 hover:text-white font-medium px-3 py-1.5 text-sm rounded-md border border-white/30 hover:border-red-400 transition-all duration-200"
                         disabled={loading}
-                        className="hover:bg-red-500/20 hover:border-red-400"
                       >
                         <Trash2 className="h-4 w-4" />
-                      </Button>
+                      </button>
                     </div>
                   </div>
                 ))}
