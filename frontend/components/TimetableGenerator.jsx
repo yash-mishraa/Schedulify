@@ -195,16 +195,15 @@ const TimetableGenerator = ({ institutionId }) => {
   };
 
   const getStatusColor = () => {
-    switch (apiStatus) {
-      case 'connected':
-        return 'bg-green-50 border-green-200 text-green-800';
-      case 'disconnected':
-        return 'bg-red-50 border-red-200 text-red-800';
-      default:
-        return 'bg-yellow-50 border-yellow-200 text-yellow-800';
-    }
-  };
-
+  switch (apiStatus) {
+    case 'connected':
+      return 'status-connected';
+    case 'disconnected':
+      return 'status-disconnected';
+    default:
+      return 'status-checking';
+  }
+};
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="text-center">
@@ -218,9 +217,10 @@ const TimetableGenerator = ({ institutionId }) => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               {getStatusIcon()}
-              <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor()}`}>
-                {getStatusText()}
-              </span>
+              <span className={`px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm ${getStatusColor()}`}>
+  {getStatusText()}
+</span>
+
             </div>
             <div className="flex space-x-2">
               <Button
@@ -247,16 +247,16 @@ const TimetableGenerator = ({ institutionId }) => {
             </div>
           </div>
           {apiStatus === 'disconnected' && (
-            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <p className="text-sm text-blue-800 font-medium mb-2">Backend URL: {process.env.NEXT_PUBLIC_API_URL}</p>
-              <p className="text-sm text-blue-700">
-                🔧 <strong>Quick Fix:</strong> Click "Wake Up Backend" button above, wait 30 seconds, then click "Check Connection"
-              </p>
-              <p className="text-xs mt-1 text-blue-600">
-                Free tier backends sleep after 15 minutes of inactivity. This is normal behavior.
-              </p>
-            </div>
-          )}
+  <div className="mt-3 p-4 bg-white/10 border border-white/20 rounded-lg backdrop-blur-sm">
+    <p className="text-white font-medium mb-2">Backend URL: <span className="font-mono text-blue-200">{process.env.NEXT_PUBLIC_API_URL}</span></p>
+    <p className="text-white/80 text-sm">
+      🔧 <strong className="text-purple-200">Quick Fix:</strong> Click "Wake Up Backend" button above, wait 30 seconds, then click "Check Connection"
+    </p>
+    <p className="text-white/70 text-xs mt-2">
+      Free tier backends sleep after 15 minutes of inactivity. This is normal behavior.
+    </p>
+  </div>
+)}
         </CardContent>
       </Card>
 

@@ -14,7 +14,7 @@ const Tabs = ({ value, onValueChange, className = "", children, ...props }) => {
 const TabsList = ({ className = "", children, activeTab, onTabChange, ...props }) => {
   return (
     <div
-      className={`inline-flex h-10 items-center justify-center rounded-md bg-gray-100 p-1 text-gray-600 ${className}`}
+      className={`glass-tabs inline-flex h-12 items-center justify-center text-white/80 ${className}`}
       {...props}
     >
       {React.Children.map(children, child => 
@@ -29,11 +29,7 @@ const TabsTrigger = ({ value, className = "", children, activeTab, onTabChange, 
   
   return (
     <button
-      className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${
-        isActive 
-          ? 'bg-white text-gray-900 shadow-sm' 
-          : 'text-gray-600 hover:text-gray-900'
-      } ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
+      className={`glass-tab ${isActive ? 'glass-tab-active' : ''} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
       onClick={() => !disabled && onTabChange && onTabChange(value)}
       disabled={disabled}
       {...props}
@@ -48,7 +44,7 @@ const TabsContent = ({ value, className = "", children, activeTab, ...props }) =
   
   return (
     <div
-      className={`mt-2 ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${className}`}
+      className={`mt-4 ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${className}`}
       {...props}
     >
       {children}
