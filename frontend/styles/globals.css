@@ -53,11 +53,48 @@
   }
 }
 
-/* Refined Glass Components */
+/* Refined Glass Components with Better Content Areas */
 @layer components {
+  /* Glass Section Headers Only */
+  .glass-section-header {
+    @apply bg-white/15 backdrop-blur-lg border border-white/30 shadow-lg shadow-purple-500/10 rounded-t-xl px-6 py-4;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .glass-section-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  }
+
+  /* Clean Content Areas */
+  .content-area {
+    @apply bg-slate-800/60 backdrop-blur-sm border-x border-b border-white/20 rounded-b-xl p-6;
+  }
+
+  /* Light Content Areas for Better Readability */
+  .light-content-area {
+    @apply bg-white/10 backdrop-blur-sm border-x border-b border-white/20 rounded-b-xl p-6;
+  }
+
+  /* Form Field Groups */
+  .field-group {
+    @apply bg-slate-700/40 backdrop-blur-sm rounded-lg p-4 border border-white/10;
+  }
+
+  /* Course Cards - Simplified */
+  .course-card {
+    @apply bg-slate-700/60 backdrop-blur-sm border border-white/20 rounded-lg p-4;
+  }
+
+  /* Glass Card for Special Elements Only */
   .glass-card {
-    @apply bg-white/15 backdrop-blur-lg border border-white/30 shadow-2xl shadow-purple-500/10;
-    border-radius: 1rem;
+    @apply bg-white/15 backdrop-blur-lg border border-white/30 shadow-2xl shadow-purple-500/10 rounded-xl;
     position: relative;
     overflow: hidden;
   }
@@ -76,7 +113,7 @@
     @apply glass-card hover:bg-white/20 hover:border-white/40 transition-all duration-300 hover:shadow-2xl hover:shadow-purple-500/20 hover:-translate-y-1;
   }
 
-  /* Refined Button Styles - More Subtle and Professional */
+  /* Button Styles */
   .btn-primary {
     @apply bg-gradient-to-r from-purple-600/80 to-blue-600/80 hover:from-purple-500/90 hover:to-blue-500/90 text-white font-medium px-4 py-2 rounded-lg backdrop-blur-sm border border-white/20 shadow-md transition-all duration-200 hover:shadow-lg hover:border-white/30;
   }
@@ -97,7 +134,7 @@
     @apply px-6 py-3 text-base rounded-xl;
   }
 
-  /* Refined Input Elements */
+  /* Input Elements */
   .glass-input {
     @apply bg-white/20 backdrop-blur-sm border border-white/30 text-white placeholder-white/70 rounded-lg px-4 py-2.5 focus:bg-white/25 focus:border-purple-400/60 focus:ring-2 focus:ring-purple-400/40 transition-all duration-300;
   }
@@ -110,43 +147,11 @@
     @apply bg-white/20 backdrop-blur-sm border border-white/30 text-white placeholder-white/70 rounded-lg px-4 py-2.5 focus:bg-white/25 focus:border-purple-400/60 focus:ring-2 focus:ring-purple-400/40 transition-all duration-300 resize-none;
   }
 
-  .glass-badge {
-    @apply bg-gradient-to-r from-purple-500/40 to-blue-500/40 backdrop-blur-sm border border-white/40 text-white px-3 py-1 rounded-full text-sm font-medium shadow-sm;
+  /* Text Styles for Better Readability */
+  .section-title {
+    @apply text-white text-lg font-semibold flex items-center;
   }
 
-  .glass-table {
-    @apply glass-card overflow-hidden;
-  }
-
-  .glass-table th {
-    @apply bg-gradient-to-r from-purple-600/30 to-blue-600/30 backdrop-blur-sm border-b border-white/30 text-white font-semibold px-4 py-3;
-  }
-
-  .glass-table td {
-    @apply border-b border-white/20 px-4 py-3;
-  }
-
-  .glass-table tr:hover {
-    @apply bg-white/10;
-  }
-
-  .lunch-slot {
-    @apply bg-gradient-to-r from-orange-500/40 to-yellow-500/40 backdrop-blur-sm border-2 border-orange-300/50 text-orange-100 rounded-xl;
-  }
-
-  .lecture-slot {
-    @apply bg-gradient-to-r from-green-500/40 to-emerald-500/40 backdrop-blur-sm border-2 border-green-300/50 text-green-100 rounded-xl;  
-  }
-
-  .lab-slot {
-    @apply bg-gradient-to-r from-blue-500/40 to-cyan-500/40 backdrop-blur-sm border-2 border-blue-300/50 text-blue-100 rounded-xl;
-  }
-
-  .free-slot {
-    @apply bg-white/10 backdrop-blur-sm border border-white/30 text-white/80 rounded-xl;
-  }
-
-  /* Enhanced Text Styles for Better Readability */
   .text-primary {
     @apply text-white;
   }
@@ -156,11 +161,11 @@
   }
 
   .text-muted {
-    @apply text-white/80;
+    @apply text-white/70;
   }
 
   .text-label {
-    @apply text-white/95 font-medium;
+    @apply text-white font-medium text-sm mb-2 block;
   }
 
   .text-value {
@@ -171,43 +176,39 @@
     @apply text-purple-200;
   }
 
-  /* Refined Checkbox Styles */
-  .glass-checkbox {
-    @apply bg-white/20 border-2 border-white/40 rounded text-purple-400 focus:ring-purple-400/50 focus:ring-2;
+  /* Status and Badges */
+  .glass-badge {
+    @apply bg-gradient-to-r from-purple-500/40 to-blue-500/40 backdrop-blur-sm border border-white/40 text-white px-3 py-1 rounded-full text-sm font-medium shadow-sm;
   }
 
-  .glass-checkbox:checked {
-    @apply bg-gradient-to-r from-purple-500 to-blue-500 border-purple-400;
-  }
-
-  /* Refined Tab Styles */
-  .glass-tabs {
-    @apply bg-white/15 backdrop-blur-sm rounded-lg p-1 border border-white/20;
-  }
-
-  .glass-tab {
-    @apply px-4 py-2 rounded-md text-white/80 font-medium transition-all duration-200;
-  }
-
-  .glass-tab-active {
-    @apply bg-white/20 text-white shadow-sm;
-  }
-
-  .glass-tab:hover {
-    @apply bg-white/10 text-white;
-  }
-
-  /* Status indicators */
   .status-connected {
-    @apply bg-gradient-to-r from-green-500/30 to-emerald-500/30 border border-green-400/50 text-green-100;
+    @apply bg-gradient-to-r from-green-500/30 to-emerald-500/30 border border-green-400/50 text-green-100 px-4 py-2 rounded-lg backdrop-blur-sm;
   }
 
   .status-disconnected {
-    @apply bg-gradient-to-r from-red-500/30 to-red-400/30 border border-red-400/50 text-red-100;
+    @apply bg-gradient-to-r from-red-500/30 to-red-400/30 border border-red-400/50 text-red-100 px-4 py-2 rounded-lg backdrop-blur-sm;
   }
 
   .status-checking {
-    @apply bg-gradient-to-r from-yellow-500/30 to-orange-500/30 border border-yellow-400/50 text-yellow-100;
+    @apply bg-gradient-to-r from-yellow-500/30 to-orange-500/30 border border-yellow-400/50 text-yellow-100 px-4 py-2 rounded-lg backdrop-blur-sm;
+  }
+
+  /* Validation and Info Areas */
+  .validation-success {
+    @apply bg-green-500/20 border border-green-400/40 text-green-100 p-4 rounded-lg backdrop-blur-sm;
+  }
+
+  .validation-error {
+    @apply bg-red-500/20 border border-red-400/40 text-red-100 p-4 rounded-lg backdrop-blur-sm;
+  }
+
+  .info-area {
+    @apply bg-blue-500/20 border border-blue-400/40 text-blue-100 p-4 rounded-lg backdrop-blur-sm;
+  }
+
+  /* Loading and Modal Styles */
+  .loading-overlay {
+    @apply fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50;
   }
 
   /* Floating animation */
@@ -223,48 +224,6 @@
       transform: translateY(-10px);
     }
   }
-
-  /* Glow effect */
-  .glow-purple {
-    box-shadow: 0 0 20px rgba(147, 51, 234, 0.4);
-  }
-
-  .glow-blue {
-    box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
-  }
-}
-
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: linear-gradient(to bottom, #8b5cf6, #3b82f6);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(to bottom, #7c3aed, #2563eb);
-}
-
-/* Loading animations */
-@keyframes pulse-glow {
-  0%, 100% {
-    box-shadow: 0 0 20px rgba(147, 51, 234, 0.4);
-  }
-  50% {
-    box-shadow: 0 0 30px rgba(147, 51, 234, 0.8);
-  }
-}
-
-.pulse-glow {
-  animation: pulse-glow 2s ease-in-out infinite;
 }
 
 /* Enhanced gradient text */
