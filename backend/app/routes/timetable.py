@@ -39,6 +39,24 @@ async def update_institution_stats(institution_id: str):
     except Exception as e:
         print(f"Failed to update institution stats: {e}")
 
+def serialize_course(course):
+    """Safely serialize a Course object"""
+    if hasattr(course, 'model_dump'):
+        return course.model_dump()
+    elif hasattr(course, 'dict'):
+        return course.dict()
+    else:
+        # Manual serialization as fallback
+        return {
+            'code': getattr(course, 'code', ''),
+            'name': getattr(course, 'name', ''),
+            'teacher': getattr(course, 'teacher', ''),
+            'lectures_per_week': getattr(course, 'lectures_per_week', 0),
+            'type': getattr(course, 'type', 'lecture'),
+            'duration': getattr(course, 'duration', 45),
+            'lab_duration': getattr(course, 'lab_duration', 2)
+        }
+
 @router.post("/generate", response_model=TimetableResponse)
 async def generate_timetable(
     request: TimetableRequest,
@@ -48,6 +66,8 @@ async def generate_timetable(
     try:
         # Convert request data to Course objects
         courses = []
+        courses_data_for_storage = []
+        
         for course_data in request.courses:
             course = Course(
                 code=course_data.code,
@@ -59,6 +79,16 @@ async def generate_timetable(
                 lab_duration=getattr(course_data, 'lab_duration', 2)
             )
             courses.append(course)
+            
+            # Store serializable course data
+            courses_data_for_storage.append({
+                'code': course_data.code,
+                'name': course_data.name,
+                'teacher': course_data.teacher,
+                'lectures_per_week': course_data.lectures_per_week,
+                'type': course_data.type,
+                'lab_duration': getattr(course_data, 'lab_duration', 2)
+            })
         
         # Prepare constraints
         constraints = {
@@ -68,7 +98,7 @@ async def generate_timetable(
             'lecture_duration': request.lecture_duration,
             'lunch_start': request.lunch_start,
             'lunch_end': request.lunch_end,
-            'custom_constraints': request.custom_constraints
+            'custom_constraints': request.custom_constraints or []
         }
         
         # Initialize optimizer
@@ -95,8 +125,11 @@ async def generate_timetable(
             'created_at': current_ist.isoformat(),
             'updated_at': current_ist.isoformat(),
             'constraints': constraints,
-            'courses_data': [course.dict() for course in courses],
-            'resources': request.resources
+            'courses_data': courses_data_for_storage,  # Use pre-serialized data
+            'resources': {
+                'classrooms': request.resources.get('classrooms', 10),
+                'labs': request.resources.get('labs', 5)
+            }
         }
         
         # Save to Firebase immediately (not in background)
@@ -114,10 +147,11 @@ async def generate_timetable(
                 print(f"Timetable saved successfully: {doc_id} and {latest_doc_id}")
             except Exception as e:
                 print(f"Error saving to Firebase: {e}")
+                # Don't fail the request if Firebase save fails
         
         # Background tasks
         background_tasks.add_task(update_institution_stats, request.institution_id)
-        background_tasks.add_task(save_user_inputs_background, request.institution_id, request.dict())
+        background_tasks.add_task(save_user_inputs_background, request.institution_id, request.model_dump() if hasattr(request, 'model_dump') else request.dict())
         
         # Return response
         return TimetableResponse(

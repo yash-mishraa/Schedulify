@@ -1,11 +1,10 @@
 import random
 import copy
-from typing import List, Dict, Any
-from dataclasses import dataclass
+from typing import Optional, List, Dict, Any
+from pydantic import BaseModel
 from datetime import datetime, timedelta
 
-@dataclass
-class Course:
+class Course(BaseModel):
     code: str
     name: str
     teacher: str
@@ -13,6 +12,25 @@ class Course:
     type: str = "lecture"  # "lecture" or "lab"
     duration: int = 45
     lab_duration: int = 2  # Number of consecutive periods for labs
+    
+    class Config:
+        use_enum_values = True
+        
+    def model_dump(self):
+        """For Pydantic v2 compatibility"""
+        return {
+            'code': self.code,
+            'name': self.name,
+            'teacher': self.teacher,
+            'lectures_per_week': self.lectures_per_week,
+            'type': self.type,
+            'duration': self.duration,
+            'lab_duration': self.lab_duration
+        }
+    
+    def dict(self):
+        """For Pydantic v1 compatibility"""
+        return self.model_dump()
 
 class GeneticTimetableOptimizer:
     def __init__(self, courses: List[Course], constraints: Dict[str, Any], resources: Dict[str, int]):
